@@ -591,6 +591,21 @@ GET /api/health
 
 Public endpoints must validate input and never expose secrets.
 
+## CORS Policy
+
+Public API endpoints (`/api/reviews`, `/widget.js`) return permissive CORS headers to allow cross-origin requests from client websites:
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+Access-Control-Max-Age: 86400
+```
+
+This is required because the widget is embedded on third-party domains that call the reviews API via `fetch()`.
+
+Admin endpoints (`/api/admin/refresh-place`) do not require CORS as they are called server-side.
+
 ## Admin Manual Refresh
 
 Manual refresh must be protected.
@@ -821,13 +836,14 @@ It may call Google directly because it is an intentional admin action, not a pub
 
 ## Retry Strategy
 
-Suggested defaults:
+Defaults:
 
-- Google transient failure: retry up to 2 times per place
-- invalid place ID: no retry
-- invalid API key: no retry loop
+- Google transient failure: retry up to 2 times per place with exponential backoff
+- Transient failures include: timeouts, rate limits (429), server errors (5xx)
+- Invalid place ID: no retry
+- Invalid API key: no retry loop
 - KV write failure: log and return failure
-- scheduled refresh should continue to the next place when one place fails
+- Scheduled refresh processes up to 3 places concurrently, continuing to next batch even if one place fails
 
 ---
 
@@ -1107,7 +1123,6 @@ ADMIN_REFRESH_TOKEN
 Optional:
 
 ```text
-ALLOWED_ORIGINS
 LOG_LEVEL
 ```
 

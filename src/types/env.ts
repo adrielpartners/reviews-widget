@@ -7,5 +7,4 @@ export interface Env {
   ADMIN_REFRESH_TOKEN: string;
   LOG_LEVEL: string;
   ALLOWED_ORIGINS?: string;
-  REFRESH_BATCH_SIZE?: string;
 }
