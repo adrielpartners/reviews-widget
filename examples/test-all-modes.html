@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reviews Widget — Test Page</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 2rem; background: #f5f5f5; }
+    h1 { color: #1a1a2e; }
+    .section { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
+    .section h2 { margin-top: 0; font-size: 1.1rem; }
+    label { display: block; margin: 0.5rem 0 0.25rem; font-size: 0.85rem; font-weight: 600; }
+    input, select { padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; width: 100%; max-width: 400px; box-sizing: border-box; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .row > div { flex: 1; min-width: 200px; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Reviews Widget — Test Page</h1>
+  <p>Local dev test page. Point the widget at <code>http://localhost:8787</code>.</p>
+
+  <!-- Inline Grid: Default Theme -->
+  <div class="section">
+    <h2>Inline Grid — Default Theme</h2>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="inline"
+      data-layout="grid"
+      data-theme="default"
+      data-max-reviews="3">
+    </script>
+  </div>
+
+  <!-- Inline Grid: Modern Theme -->
+  <div class="section">
+    <h2>Inline Grid — Modern Theme</h2>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="inline"
+      data-layout="grid"
+      data-theme="modern"
+      data-max-reviews="2"
+      data-cta-text="See all reviews"
+      data-cta-url="https://google.com/maps">
+    </script>
+  </div>
+
+  <!-- Inline Carousel: Default -->
+  <div class="section">
+    <h2>Inline Carousel — Professional Theme</h2>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="inline"
+      data-layout="carousel"
+      data-theme="professional"
+      data-max-reviews="5">
+    </script>
+  </div>
+
+  <!-- Inline Grid: Pastel Theme with CTA -->
+  <div class="section">
+    <h2>Inline Grid — Pastel + CTA</h2>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="inline"
+      data-layout="grid"
+      data-theme="pastel"
+      data-max-reviews="3"
+      data-cta-text="Read more reviews"
+      data-cta-url="https://google.com/maps">
+    </script>
+  </div>
+
+  <!-- Flyout: Bottom Right -->
+  <div class="section">
+    <h2>Flyout — Bottom Right (default)</h2>
+    <p>Flyout should appear bottom-right. Click the summary bar to expand/collapse.</p>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="flyout"
+      data-position="bottom-right"
+      data-theme="default"
+      data-max-reviews="5"
+      data-cta-text="See all reviews"
+      data-cta-url="https://google.com/maps">
+    </script>
+  </div>
+
+  <!-- Custom mount selector demo -->
+  <div class="section">
+    <h2>Custom Mount Selector — Grid in #my-widget</h2>
+    <div id="my-widget" style="min-height: 60px; border: 2px dashed #d1d5db; border-radius: 8px; padding: 0.5rem;"></div>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="inline"
+      data-layout="grid"
+      data-theme="modern"
+      data-mount="#my-widget"
+      data-max-reviews="3">
+    </script>
+  </div>
+
+  <!-- Custom class demo -->
+  <div class="section">
+    <h2>Custom Class Override</h2>
+    <style>
+      .my-custom-widget { border: 3px solid #2563eb; border-radius: 12px; padding: 1rem; background: #eff6ff; }
+    </style>
+    <script src="http://localhost:8787/widget.js"
+      data-place-id="ChIJN1t_tDeuEmsRUsoyG83frY4"
+      data-mode="inline"
+      data-layout="grid"
+      data-theme="default"
+      data-custom-class="my-custom-widget"
+      data-max-reviews="2">
+    </script>
+  </div>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# .dev.vars.example
+# Copy to .dev.vars and fill in real values for local development.
+# DO NOT commit .dev.vars.
+
+GOOGLE_PLACES_API_KEY=your_google_places_api_key_here
+ADMIN_REFRESH_TOKEN=your_admin_refresh_token_here
+LOG_LEVEL=info

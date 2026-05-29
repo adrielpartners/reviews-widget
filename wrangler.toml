@@ -1,0 +1,26 @@
+name = "reviews-widget"
+main = "src/worker.ts"
+compatibility_date = "2026-05-29"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+LOG_LEVEL = "info"
+
+# KV namespace: create with `wrangler kv:namespace create REVIEWS_KV`
+# Then paste the namespace ID and preview_id below.
+[[kv_namespaces]]
+binding = "REVIEWS_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+
+# Scheduled refresh: daily at 08:00 UTC
+[triggers]
+crons = ["0 8 * * *"]
+
+# Required secrets (set via `wrangler secret put <NAME>`):
+# GOOGLE_PLACES_API_KEY — Google Places API (New) key
+# ADMIN_REFRESH_TOKEN   — Bearer token for manual refresh endpoint
+
+# Production route: configure in Cloudflare dashboard
+# Route: reviews.marketinghero.net/*
+# -> reviews-widget worker

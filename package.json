@@ -1,0 +1,14 @@
+{
+  "name": "reviews-widget",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:widget": "node scripts/build-widget.js",
+    "dev": "npm run build:widget && npx wrangler dev",
+    "deploy": "npm run build:widget && npx wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240529.0",
+    "typescript": "^5.4.0"
+  }
+}

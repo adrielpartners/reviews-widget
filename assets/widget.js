@@ -1,0 +1,982 @@
+// Reviews Widget v1.0.0
+// https://reviews.marketinghero.net
+
+// --- config.js ---
+// src/widget/config.js
+(function () {
+  "use strict";
+
+  var DEFAULTS = {
+    mode: "inline",
+    layout: "grid",
+    theme: "default",
+    position: "bottom-right",
+    maxReviews: 3
+  };
+
+  var VALID_MODES = ["inline", "flyout"];
+  var VALID_LAYOUTS = ["grid", "carousel"];
+  var VALID_THEMES = ["default", "modern", "professional", "pastel"];
+  var VALID_POSITIONS = ["bottom-right", "bottom-center", "bottom-left"];
+  var MAX_REVIEWS_CAP = 50;
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  window.ReviewsWidget.parseConfig = function parseConfig(scriptEl) {
+    var dataset = scriptEl.dataset;
+    var placeId = (dataset.placeId || "").trim();
+
+    if (!placeId) {
+      console.warn("[reviews-widget] Missing data-place-id");
+      return null;
+    }
+
+    var maxReviews = parseInt(dataset.maxReviews || String(DEFAULTS.maxReviews), 10);
+    if (isNaN(maxReviews) || maxReviews < 1) maxReviews = DEFAULTS.maxReviews;
+    if (maxReviews > MAX_REVIEWS_CAP) maxReviews = MAX_REVIEWS_CAP;
+
+    return {
+      placeId: placeId,
+      mode: sanitizeEnum(dataset.mode, VALID_MODES, DEFAULTS.mode),
+      layout: sanitizeEnum(dataset.layout, VALID_LAYOUTS, DEFAULTS.layout),
+      theme: sanitizeEnum(dataset.theme, VALID_THEMES, DEFAULTS.theme),
+      position: sanitizeEnum(dataset.position, VALID_POSITIONS, DEFAULTS.position),
+      maxReviews: maxReviews,
+      ctaText: sanitizeText(dataset.ctaText),
+      ctaUrl: sanitizeUrl(dataset.ctaUrl),
+      mount: sanitizeMountSelector(dataset.mount),
+      customClass: sanitizeClassName(dataset.customClass)
+    };
+  };
+
+  function sanitizeEnum(value, valid, fallback) {
+    if (value && valid.indexOf(value) !== -1) return value;
+    return fallback;
+  }
+
+  function sanitizeText(value) {
+    if (!value) return undefined;
+    var t = value.trim().slice(0, 200);
+    return t || undefined;
+  }
+
+  function sanitizeUrl(value) {
+    if (!value) return undefined;
+    var trimmed = value.trim();
+    try {
+      var url = new URL(trimmed);
+      if (url.protocol === "http:" || url.protocol === "https:") return trimmed;
+    } catch (e) {}
+    return undefined;
+  }
+
+  function sanitizeMountSelector(value) {
+    if (!value) return undefined;
+    var t = value.trim();
+    if (t.length === 0 || t.length > 200) return undefined;
+    if (/^[#.][a-zA-Z0-9_ \-]+$/.test(t)) return t;
+    return undefined;
+  }
+
+  function sanitizeClassName(value) {
+    if (!value) return undefined;
+    var t = value.trim();
+    if (t.length === 0 || t.length > 100) return undefined;
+    if (/^[a-zA-Z0-9_ \-]+$/.test(t)) return t;
+    return undefined;
+  }
+})();
+
+
+// --- api-client.js ---
+// src/widget/api-client.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  // Derive the API base URL from the script's src attribute.
+  // Handles CDN, custom domains, and local dev.
+  window.ReviewsWidget.getApiBase = function (scriptEl) {
+    var src = scriptEl.getAttribute("src") || "";
+    try {
+      var url = new URL(src);
+      return url.origin;
+    } catch (e) {
+      // Fallback: if URL parsing fails, use current origin
+      return window.location.origin;
+    }
+  };
+
+  // Fetch cached review data from the Worker API.
+  // Returns a promise that resolves to the review data or null.
+  window.ReviewsWidget.fetchReviews = function (apiBase, placeId) {
+    if (!placeId) return Promise.resolve(null);
+
+    var url = apiBase + "/api/reviews?placeId=" + encodeURIComponent(placeId);
+
+    return fetch(url, {
+      method: "GET",
+      headers: { "Accept": "application/json" }
+    })
+      .then(function (response) {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then(function (json) {
+        if (json && json.ok && json.data) return json.data;
+        return null;
+      })
+      .catch(function () {
+        return null;
+      });
+  };
+})();
+
+
+// --- render.js ---
+// src/widget/render.js — Core rendering helpers.
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  window.ReviewsWidget.applyTheme = function (rootEl, themeName) {
+    var tokens = window.ReviewsWidget.getThemeTokens(themeName);
+    for (var k in tokens) {
+      if (Object.prototype.hasOwnProperty.call(tokens, k)) {
+        rootEl.style.setProperty(k, tokens[k]);
+      }
+    }
+  };
+
+  window.ReviewsWidget.createRoot = function (config) {
+    var root = document.createElement("div");
+    var cls = ["rw-root", "rw-theme--" + (config.theme || "default")];
+    if (config.mode === "flyout") {
+      cls.push("rw-mode-flyout");
+      cls.push("rw-position--" + (config.position || "bottom-right"));
+    }
+    if (config.customClass) {
+      cls.push(config.customClass);
+    }
+    root.className = cls.join(" ");
+
+    window.ReviewsWidget.applyTheme(root, config.theme || "default");
+
+    // Mount: use custom selector, or default to script insertion point
+    if (config.mount) {
+      var mountEl = document.querySelector(config.mount);
+      if (mountEl) {
+        mountEl.appendChild(root);
+        return root;
+      }
+      console.warn("[reviews-widget] Mount selector not found:", config.mount);
+    }
+
+    var scriptEl = document.currentScript;
+    if (scriptEl && scriptEl.parentNode) {
+      scriptEl.parentNode.insertBefore(root, scriptEl);
+    } else {
+      document.body.appendChild(root);
+    }
+
+    return root;
+  };
+
+  window.ReviewsWidget.renderEmpty = function (rootEl) {
+    rootEl.innerHTML = "";
+    var msg = document.createElement("div");
+    msg.className = "rw-empty";
+    msg.textContent = "No reviews available yet.";
+    rootEl.appendChild(msg);
+  };
+})();
+
+
+// --- themes/tokens.js ---
+// src/widget/themes/tokens.js — CSS custom properties for all themes.
+(function () {
+  "use strict";
+
+  var BASE = {};
+  BASE["--rw-color-bg"] = "#ffffff";
+  BASE["--rw-color-text"] = "#1a1a2e";
+  BASE["--rw-color-text-secondary"] = "#6b7280";
+  BASE["--rw-color-border"] = "#e5e7eb";
+  BASE["--rw-color-star"] = "#f59e0b";
+  BASE["--rw-color-star-empty"] = "#d1d5db";
+  BASE["--rw-color-cta-bg"] = "#2563eb";
+  BASE["--rw-color-cta-text"] = "#ffffff";
+  BASE["--rw-color-card-bg"] = "#ffffff";
+  BASE["--rw-color-overlay"] = "rgba(0,0,0,0.5)";
+  BASE["--rw-color-modal-bg"] = "#ffffff";
+  BASE["--rw-font-family"] = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+  BASE["--rw-font-size-xs"] = "0.75rem";
+  BASE["--rw-font-size-sm"] = "0.875rem";
+  BASE["--rw-font-size-base"] = "1rem";
+  BASE["--rw-font-size-lg"] = "1.125rem";
+  BASE["--rw-font-size-xl"] = "1.25rem";
+  BASE["--rw-space-1"] = "0.25rem";
+  BASE["--rw-space-2"] = "0.5rem";
+  BASE["--rw-space-3"] = "0.75rem";
+  BASE["--rw-space-4"] = "1rem";
+  BASE["--rw-space-6"] = "1.5rem";
+  BASE["--rw-space-8"] = "2rem";
+  BASE["--rw-radius-sm"] = "0.375rem";
+  BASE["--rw-radius-md"] = "0.5rem";
+  BASE["--rw-radius-lg"] = "0.75rem";
+  BASE["--rw-radius-full"] = "9999px";
+  BASE["--rw-shadow-sm"] = "0 1px 2px rgba(0,0,0,0.05)";
+  BASE["--rw-shadow-md"] = "0 4px 6px rgba(0,0,0,0.07)";
+  BASE["--rw-shadow-lg"] = "0 10px 25px rgba(0,0,0,0.1)";
+  BASE["--rw-shadow-xl"] = "0 20px 50px rgba(0,0,0,0.15)";
+  BASE["--rw-transition-fast"] = "150ms ease";
+  BASE["--rw-transition-base"] = "300ms ease";
+  BASE["--rw-z-base"] = "1";
+  BASE["--rw-z-flyout"] = "9999";
+  BASE["--rw-z-modal"] = "10000";
+
+  var THEMES = {};
+  THEMES["default"] = {};
+
+  THEMES["modern"] = {};
+  THEMES["modern"]["--rw-color-bg"] = "#0f172a";
+  THEMES["modern"]["--rw-color-text"] = "#f1f5f9";
+  THEMES["modern"]["--rw-color-text-secondary"] = "#94a3b8";
+  THEMES["modern"]["--rw-color-border"] = "#1e293b";
+  THEMES["modern"]["--rw-color-star"] = "#fbbf24";
+  THEMES["modern"]["--rw-color-star-empty"] = "#334155";
+  THEMES["modern"]["--rw-color-cta-bg"] = "#3b82f6";
+  THEMES["modern"]["--rw-color-cta-text"] = "#ffffff";
+  THEMES["modern"]["--rw-color-card-bg"] = "#1e293b";
+  THEMES["modern"]["--rw-shadow-md"] = "0 4px 12px rgba(0,0,0,0.3)";
+  THEMES["modern"]["--rw-shadow-lg"] = "0 10px 30px rgba(0,0,0,0.4)";
+
+  THEMES["professional"] = {};
+  THEMES["professional"]["--rw-color-bg"] = "#fafafa";
+  THEMES["professional"]["--rw-color-text"] = "#2d3748";
+  THEMES["professional"]["--rw-color-text-secondary"] = "#718096";
+  THEMES["professional"]["--rw-color-border"] = "#cbd5e0";
+  THEMES["professional"]["--rw-color-star"] = "#d69e2e";
+  THEMES["professional"]["--rw-color-star-empty"] = "#e2e8f0";
+  THEMES["professional"]["--rw-color-cta-bg"] = "#2b6cb0";
+  THEMES["professional"]["--rw-color-cta-text"] = "#ffffff";
+  THEMES["professional"]["--rw-color-card-bg"] = "#ffffff";
+  THEMES["professional"]["--rw-radius-sm"] = "0.25rem";
+  THEMES["professional"]["--rw-radius-md"] = "0.375rem";
+  THEMES["professional"]["--rw-radius-lg"] = "0.5rem";
+
+  THEMES["pastel"] = {};
+  THEMES["pastel"]["--rw-color-bg"] = "#fef7f0";
+  THEMES["pastel"]["--rw-color-text"] = "#4a3728";
+  THEMES["pastel"]["--rw-color-text-secondary"] = "#8b7355";
+  THEMES["pastel"]["--rw-color-border"] = "#e8ddd0";
+  THEMES["pastel"]["--rw-color-star"] = "#f6ad55";
+  THEMES["pastel"]["--rw-color-star-empty"] = "#ddd0c0";
+  THEMES["pastel"]["--rw-color-cta-bg"] = "#ed8936";
+  THEMES["pastel"]["--rw-color-cta-text"] = "#ffffff";
+  THEMES["pastel"]["--rw-color-card-bg"] = "#ffffff";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  window.ReviewsWidget.getThemeTokens = function (themeName) {
+    var tokens = {};
+    var k;
+    for (k in BASE) {
+      if (Object.prototype.hasOwnProperty.call(BASE, k)) tokens[k] = BASE[k];
+    }
+    var overrides = THEMES[themeName] || THEMES["default"];
+    for (k in overrides) {
+      if (Object.prototype.hasOwnProperty.call(overrides, k)) tokens[k] = overrides[k];
+    }
+    return tokens;
+  };
+
+  window.ReviewsWidget.getAllThemeNames = function () {
+    return Object.keys(THEMES);
+  };
+})();
+
+
+// --- components/review-card.js ---
+// src/widget/components/review-card.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  // Render a single review card into the given container.
+  // data: { authorName, rating, text, relativeTimeDescription, authorPhotoUrl, profileUrl }
+  // opts: { maxCharacters: number }
+  window.ReviewsWidget.renderReviewCard = function (container, data, opts) {
+    opts = opts || {};
+    var maxChars = opts.maxCharacters || 200;
+
+    var card = document.createElement("div");
+    card.className = "rw-card";
+
+    // Star rating
+    var starsEl = renderStars(data.rating);
+    card.appendChild(starsEl);
+
+    // Review text (truncated)
+    var textEl = document.createElement("p");
+    textEl.className = "rw-card-text";
+    var text = data.text || "";
+    if (text.length > maxChars) {
+      text = text.slice(0, maxChars) + "...";
+    }
+    textEl.textContent = text;
+    card.appendChild(textEl);
+
+    // Author + time footer
+    var footer = document.createElement("div");
+    footer.className = "rw-card-footer";
+
+    var authorEl = document.createElement("span");
+    authorEl.className = "rw-card-author";
+    authorEl.textContent = data.authorName || "Anonymous";
+    footer.appendChild(authorEl);
+
+    if (data.relativeTimeDescription) {
+      var timeEl = document.createElement("span");
+      timeEl.className = "rw-card-time";
+      timeEl.textContent = data.relativeTimeDescription;
+      footer.appendChild(timeEl);
+    }
+
+    card.appendChild(footer);
+
+    container.appendChild(card);
+  };
+
+  // Render star rating visual. Returns an element.
+  function renderStars(rating) {
+    var wrap = document.createElement("div");
+    wrap.className = "rw-stars";
+    wrap.setAttribute("aria-label", "Rating: " + (rating || 0) + " out of 5");
+
+    var r = Math.round(rating || 0);
+    for (var i = 1; i <= 5; i++) {
+      var star = document.createElement("span");
+      star.className = "rw-star";
+      if (i <= r) {
+        star.classList.add("rw-star--filled");
+        star.textContent = "\u2605";
+      } else {
+        star.classList.add("rw-star--empty");
+        star.textContent = "\u2606";
+      }
+      wrap.appendChild(star);
+    }
+
+    return wrap;
+  }
+})();
+
+
+// --- components/modal.js ---
+// src/widget/components/modal.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  // Show a modal overlay with the full review text.
+  // Returns a function to close the modal.
+  window.ReviewsWidget.showModal = function (data) {
+    var root = document.createElement("div");
+    root.className = "rw-modal-overlay";
+    root.setAttribute("role", "dialog");
+    root.setAttribute("aria-modal", "true");
+
+    var modal = document.createElement("div");
+    modal.className = "rw-modal";
+
+    // Close button
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "rw-modal-close";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.textContent = "\u00D7";
+    closeBtn.addEventListener("click", close);
+    modal.appendChild(closeBtn);
+
+    // Author
+    var authorEl = document.createElement("div");
+    authorEl.className = "rw-modal-author";
+    authorEl.textContent = data.authorName || "Anonymous";
+    modal.appendChild(authorEl);
+
+    // Stars
+    var starsContainer = document.createElement("div");
+    starsContainer.className = "rw-modal-stars";
+    var r = Math.round(data.rating || 0);
+    for (var i = 1; i <= 5; i++) {
+      var star = document.createElement("span");
+      star.className = "rw-star" + (i <= r ? " rw-star--filled" : " rw-star--empty");
+      star.textContent = i <= r ? "\u2605" : "\u2606";
+      starsContainer.appendChild(star);
+    }
+    modal.appendChild(starsContainer);
+
+    // Full text
+    var textEl = document.createElement("p");
+    textEl.className = "rw-modal-text";
+    textEl.textContent = data.text || "";
+    modal.appendChild(textEl);
+
+    // Time
+    if (data.relativeTimeDescription) {
+      var timeEl = document.createElement("div");
+      timeEl.className = "rw-modal-time";
+      timeEl.textContent = data.relativeTimeDescription;
+      modal.appendChild(timeEl);
+    }
+
+    root.appendChild(modal);
+    document.body.appendChild(root);
+
+    // Close on overlay click
+    root.addEventListener("click", function (e) {
+      if (e.target === root) close();
+    });
+
+    // Close on Escape
+    var keyHandler = function (e) {
+      if (e.key === "Escape") close();
+    };
+    document.addEventListener("keydown", keyHandler);
+
+    function close() {
+      document.removeEventListener("keydown", keyHandler);
+      if (root.parentNode) root.parentNode.removeChild(root);
+    }
+
+    return close;
+  };
+})();
+
+
+// --- components/cta-button.js ---
+// src/widget/components/cta-button.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  // Render a CTA button. Returns the element or null if no config.
+  window.ReviewsWidget.renderCtaButton = function (container, ctaText, ctaUrl) {
+    if (!ctaText) return null;
+
+    var btn = document.createElement("a");
+    btn.className = "rw-cta";
+    btn.textContent = ctaText;
+    if (ctaUrl) {
+      btn.href = ctaUrl;
+      btn.target = "_blank";
+      btn.rel = "noopener noreferrer";
+    } else {
+      btn.href = "#";
+      btn.setAttribute("role", "button");
+    }
+
+    container.appendChild(btn);
+    return btn;
+  };
+})();
+
+
+// --- modes/inline-grid.js ---
+// src/widget/modes/inline-grid.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  window.ReviewsWidget.renderInlineGrid = function (rootEl, data, config) {
+    rootEl.innerHTML = "";
+    rootEl.className = rootEl.className + " rw-layout-grid";
+
+    var reviews = data.reviews || [];
+    var max = Math.min(reviews.length, config.maxReviews || 3);
+
+    if (max === 0) {
+      window.ReviewsWidget.renderEmpty(rootEl);
+      return;
+    }
+
+    var grid = document.createElement("div");
+    grid.className = "rw-grid";
+
+    for (var i = 0; i < max; i++) {
+      var cardWrapper = document.createElement("div");
+      cardWrapper.className = "rw-grid-item";
+      window.ReviewsWidget.renderReviewCard(cardWrapper, reviews[i], { maxCharacters: 150 });
+
+      // Add "Read More" link if text was truncated
+      if (reviews[i].text && reviews[i].text.length > 150) {
+        var moreLink = document.createElement("button");
+        moreLink.className = "rw-read-more";
+        moreLink.textContent = "Read more";
+        moreLink.addEventListener("click", (function (review) {
+          return function () {
+            window.ReviewsWidget.showModal(review);
+          };
+        })(reviews[i]));
+        cardWrapper.appendChild(moreLink);
+      }
+
+      grid.appendChild(cardWrapper);
+    }
+
+    rootEl.appendChild(grid);
+
+    // Summary header
+    if (data.rating && data.reviewCount) {
+      var header = document.createElement("div");
+      header.className = "rw-summary";
+
+      var nameEl = document.createElement("span");
+      nameEl.className = "rw-summary-name";
+      nameEl.textContent = data.businessName || "";
+      header.appendChild(nameEl);
+
+      var ratingEl = document.createElement("span");
+      ratingEl.className = "rw-summary-rating";
+      ratingEl.textContent = "\u2605 " + data.rating.toFixed(1) + " (" + data.reviewCount + " reviews)";
+      header.appendChild(ratingEl);
+
+      rootEl.insertBefore(header, grid);
+    }
+
+    // CTA
+    if (config.ctaText) {
+      var ctaContainer = document.createElement("div");
+      ctaContainer.className = "rw-cta-wrap";
+      window.ReviewsWidget.renderCtaButton(ctaContainer, config.ctaText, config.ctaUrl);
+      rootEl.appendChild(ctaContainer);
+    }
+  };
+})();
+
+
+// --- modes/inline-carousel.js ---
+// src/widget/modes/inline-carousel.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  window.ReviewsWidget.renderInlineCarousel = function (rootEl, data, config) {
+    rootEl.innerHTML = "";
+    rootEl.className = rootEl.className + " rw-layout-carousel";
+
+    var reviews = data.reviews || [];
+    var max = Math.min(reviews.length, config.maxReviews || 3);
+
+    if (max === 0) {
+      window.ReviewsWidget.renderEmpty(rootEl);
+      return;
+    }
+
+    // Summary header
+    if (data.rating && data.reviewCount) {
+      var header = document.createElement("div");
+      header.className = "rw-summary";
+
+      var nameEl = document.createElement("span");
+      nameEl.className = "rw-summary-name";
+      nameEl.textContent = data.businessName || "";
+      header.appendChild(nameEl);
+
+      var ratingEl = document.createElement("span");
+      ratingEl.className = "rw-summary-rating";
+      ratingEl.textContent = "\u2605 " + data.rating.toFixed(1) + " (" + data.reviewCount + " reviews)";
+      header.appendChild(ratingEl);
+
+      rootEl.appendChild(header);
+    }
+
+    // Carousel container
+    var carouselWrap = document.createElement("div");
+    carouselWrap.className = "rw-carousel";
+
+    var track = document.createElement("div");
+    track.className = "rw-carousel-track";
+
+    var currentIndex = 0;
+    var autoTimer = null;
+    var autoInterval = 5000;
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Build slides
+    for (var i = 0; i < max; i++) {
+      var slide = document.createElement("div");
+      slide.className = "rw-carousel-slide";
+      slide.setAttribute("role", "group");
+      slide.setAttribute("aria-roledescription", "slide");
+      slide.setAttribute("aria-label", (i + 1) + " of " + max);
+
+      window.ReviewsWidget.renderReviewCard(slide, reviews[i], { maxCharacters: 200 });
+
+      if (reviews[i].text && reviews[i].text.length > 200) {
+        var moreLink = document.createElement("button");
+        moreLink.className = "rw-read-more";
+        moreLink.textContent = "Read more";
+        moreLink.addEventListener("click", (function (review) {
+          return function () {
+            window.ReviewsWidget.showModal(review);
+          };
+        })(reviews[i]));
+        slide.appendChild(moreLink);
+      }
+
+      track.appendChild(slide);
+    }
+
+    carouselWrap.appendChild(track);
+
+    // Navigation arrows
+    var prevBtn = document.createElement("button");
+    prevBtn.className = "rw-carousel-prev";
+    prevBtn.setAttribute("aria-label", "Previous review");
+    prevBtn.innerHTML = "&#8249;";
+    prevBtn.addEventListener("click", function () { goTo(currentIndex - 1); });
+
+    var nextBtn = document.createElement("button");
+    nextBtn.className = "rw-carousel-next";
+    nextBtn.setAttribute("label", "Next review");
+    nextBtn.innerHTML = "&#8250;";
+    nextBtn.addEventListener("click", function () { goTo(currentIndex + 1); });
+
+    carouselWrap.appendChild(prevBtn);
+    carouselWrap.appendChild(nextBtn);
+
+    // Dot indicators
+    var dotsWrap = document.createElement("div");
+    dotsWrap.className = "rw-carousel-dots";
+    dotsWrap.setAttribute("role", "tablist");
+    dotsWrap.setAttribute("aria-label", "Review navigation");
+
+    var dots = [];
+    for (var d = 0; d < max; d++) {
+      var dot = document.createElement("button");
+      dot.className = "rw-carousel-dot";
+      dot.setAttribute("role", "tab");
+      dot.setAttribute("aria-label", "Go to review " + (d + 1));
+      dot.setAttribute("aria-selected", d === 0 ? "true" : "false");
+      if (d === 0) dot.classList.add("rw-carousel-dot--active");
+
+      dot.addEventListener("click", (function (idx) {
+        return function () { goTo(idx); };
+      })(d));
+
+      dotsWrap.appendChild(dot);
+      dots.push(dot);
+    }
+
+    carouselWrap.appendChild(dotsWrap);
+    rootEl.appendChild(carouselWrap);
+
+    // CTA
+    if (config.ctaText) {
+      var ctaContainer = document.createElement("div");
+      ctaContainer.className = "rw-cta-wrap";
+      window.ReviewsWidget.renderCtaButton(ctaContainer, config.ctaText, config.ctaUrl);
+      rootEl.appendChild(ctaContainer);
+    }
+
+    // Navigation logic
+    function goTo(idx) {
+      if (idx < 0) idx = max - 1;
+      if (idx >= max) idx = 0;
+      currentIndex = idx;
+      track.style.transform = "translateX(-" + (idx * 100) + "%)";
+
+      // Update dots
+      for (var j = 0; j < dots.length; j++) {
+        dots[j].classList.toggle("rw-carousel-dot--active", j === idx);
+        dots[j].setAttribute("aria-selected", j === idx ? "true" : "false");
+      }
+
+      resetAuto();
+    }
+
+    function resetAuto() {
+      if (autoTimer) clearInterval(autoTimer);
+      if (!reducedMotion) {
+        autoTimer = setInterval(function () { goTo(currentIndex + 1); }, autoInterval);
+      }
+    }
+
+    // Pause on hover
+    carouselWrap.addEventListener("mouseenter", function () {
+      if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    });
+    carouselWrap.addEventListener("mouseleave", resetAuto);
+
+    // Pause when tab hidden
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+      } else {
+        resetAuto();
+      }
+    });
+
+    // Keyboard nav
+    carouselWrap.setAttribute("tabindex", "0");
+    carouselWrap.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { e.preventDefault(); goTo(currentIndex - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); goTo(currentIndex + 1); }
+    });
+
+    // Initial slide position
+    goTo(0);
+  };
+})();
+
+
+// --- modes/flyout.js ---
+// src/widget/modes/flyout.js
+(function () {
+  "use strict";
+
+  window.ReviewsWidget = window.ReviewsWidget || {};
+
+  window.ReviewsWidget.renderFlyout = function (rootEl, data, config) {
+    var reviews = data.reviews || [];
+    var max = Math.min(reviews.length, config.maxReviews || 10);
+
+    if (max === 0) {
+      window.ReviewsWidget.renderEmpty(rootEl);
+      return;
+    }
+
+    rootEl.className = rootEl.className + " rw-flyout";
+
+    // Summary bar (collapsed state)
+    var summary = document.createElement("div");
+    summary.className = "rw-flyout-summary";
+
+    var ratingText = document.createElement("span");
+    ratingText.className = "rw-flyout-rating";
+    ratingText.textContent = "\u2605 " + (data.rating ? data.rating.toFixed(1) : "0");
+    summary.appendChild(ratingText);
+
+    var countText = document.createElement("span");
+    countText.className = "rw-flyout-count";
+    countText.textContent = "(" + (data.reviewCount || 0) + " reviews)";
+    summary.appendChild(countText);
+
+    rootEl.appendChild(summary);
+
+    // Expanded review panel
+    var panel = document.createElement("div");
+    panel.className = "rw-flyout-panel";
+    panel.style.display = "none";
+
+    var currentIndex = 0;
+    var autoTimer = null;
+    var autoInterval = 5000;
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var isOpen = false;
+
+    // Review display area
+    var reviewArea = document.createElement("div");
+    reviewArea.className = "rw-flyout-review";
+    panel.appendChild(reviewArea);
+
+    // Nav dots
+    var dotsWrap = document.createElement("div");
+    dotsWrap.className = "rw-flyout-dots";
+    var dots = [];
+    for (var d = 0; d < max; d++) {
+      var dot = document.createElement("button");
+      dot.className = "rw-carousel-dot";
+      if (d === 0) dot.classList.add("rw-carousel-dot--active");
+      dot.setAttribute("aria-label", "Review " + (d + 1) + " of " + max);
+      dot.addEventListener("click", (function (idx) {
+        return function () { showReview(idx); };
+      })(d));
+      dotsWrap.appendChild(dot);
+      dots.push(dot);
+    }
+    panel.appendChild(dotsWrap);
+
+    // CTA
+    if (config.ctaText) {
+      var ctaContainer = document.createElement("div");
+      ctaContainer.className = "rw-cta-wrap";
+      window.ReviewsWidget.renderCtaButton(ctaContainer, config.ctaText, config.ctaUrl);
+      panel.appendChild(ctaContainer);
+    }
+
+    rootEl.appendChild(panel);
+
+    // Toggle panel on summary click
+    summary.addEventListener("click", function () {
+      isOpen = !isOpen;
+      panel.style.display = isOpen ? "block" : "none";
+      if (isOpen) {
+        showReview(0);
+      } else {
+        stopAuto();
+      }
+    });
+
+    // Personalization cookie: remember if user has seen flyout
+    var COOKIE_NAME = "rw_flyout_seen";
+    function getCookie(name) {
+      var match = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]*)"));
+      return match ? match[1] : null;
+    }
+    function setCookie(name, value, days) {
+      var d = new Date();
+      d.setTime(d.getTime() + days * 86400000);
+      document.cookie = name + "=" + value + ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
+    }
+
+    // Show flyout automatically if not seen before
+    if (!getCookie(COOKIE_NAME)) {
+      setTimeout(function () {
+        isOpen = true;
+        panel.style.display = "block";
+        showReview(0);
+        setCookie(COOKIE_NAME, "1", 30);
+      }, 2000);
+    }
+
+    function showReview(idx) {
+      currentIndex = idx;
+      reviewArea.innerHTML = "";
+
+      window.ReviewsWidget.renderReviewCard(reviewArea, reviews[idx], { maxCharacters: 300 });
+
+      if (reviews[idx].text && reviews[idx].text.length > 300) {
+        var moreLink = document.createElement("button");
+        moreLink.className = "rw-read-more";
+        moreLink.textContent = "Read more";
+        moreLink.addEventListener("click", (function (review) {
+          return function () {
+            window.ReviewsWidget.showModal(review);
+          };
+        })(reviews[idx]));
+        reviewArea.appendChild(moreLink);
+      }
+
+      // Update active dot
+      for (var j = 0; j < dots.length; j++) {
+        dots[j].classList.toggle("rw-carousel-dot--active", j === idx);
+      }
+    }
+
+    function nextReview() {
+      showReview((currentIndex + 1) % max);
+    }
+
+    function startAuto() {
+      if (autoTimer) clearInterval(autoTimer);
+      if (!reducedMotion) {
+        autoTimer = setInterval(nextReview, autoInterval);
+      }
+    }
+
+    function stopAuto() {
+      if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    }
+
+    // Pause on hover
+    rootEl.addEventListener("mouseenter", stopAuto);
+    rootEl.addEventListener("mouseleave", function () {
+      if (isOpen) startAuto();
+    });
+
+    // Pause when tab hidden
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) { stopAuto(); }
+      else if (isOpen) { startAuto(); }
+    });
+
+    // Keyboard: advance reviews with arrow keys when flyout is open
+    rootEl.setAttribute("tabindex", "0");
+    rootEl.addEventListener("keydown", function (e) {
+      if (!isOpen) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); nextReview(); }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); showReview((currentIndex - 1 + max) % max); }
+      if (e.key === "Escape") { isOpen = false; panel.style.display = "none"; stopAuto(); }
+    });
+  };
+})();
+
+
+// --- index.js ---
+// src/widget/index.js — Main widget bootstrap.
+(function () {
+  "use strict";
+
+  // Prevent double-initialization
+  if (window.ReviewsWidget && window.ReviewsWidget._initialized) return;
+  window.ReviewsWidget = window.ReviewsWidget || {};
+  window.ReviewsWidget._initialized = true;
+
+  // Find the current script element
+  var scriptEl = document.currentScript;
+  if (!scriptEl) {
+    console.warn("[reviews-widget] Cannot find script element");
+    return;
+  }
+
+  // Parse config from data-* attributes
+  var config;
+  try {
+    config = window.ReviewsWidget.parseConfig(scriptEl);
+  } catch (e) {
+    console.error("[reviews-widget] Config parse error:", e);
+    return;
+  }
+  if (!config) return;
+
+  // Determine API base URL
+  var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+
+  // Create the widget root element
+  var rootEl;
+  try {
+    rootEl = window.ReviewsWidget.createRoot(config);
+  } catch (e) {
+    console.error("[reviews-widget] Root creation error:", e);
+    return;
+  }
+
+  // Set ARIA role on root
+  rootEl.setAttribute("role", "region");
+  rootEl.setAttribute("aria-label", "Customer reviews");
+
+  // Fetch review data
+  window.ReviewsWidget.fetchReviews(apiBase, config.placeId).then(function (data) {
+    if (!data) {
+      window.ReviewsWidget.renderEmpty(rootEl);
+      return;
+    }
+
+    try {
+      // Route to the correct display mode
+      if (config.mode === "flyout") {
+        window.ReviewsWidget.renderFlyout(rootEl, data, config);
+      } else if (config.layout === "carousel") {
+        window.ReviewsWidget.renderInlineCarousel(rootEl, data, config);
+      } else {
+        // Default: inline grid
+        window.ReviewsWidget.renderInlineGrid(rootEl, data, config);
+      }
+    } catch (e) {
+      console.error("[reviews-widget] Render error:", e);
+      window.ReviewsWidget.renderEmpty(rootEl);
+    }
+  }).catch(function () {
+    window.ReviewsWidget.renderEmpty(rootEl);
+  });
+})();
+
