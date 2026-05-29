@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build:widget": "node scripts/build-widget.js",
+    "typecheck": "tsc --noEmit",
     "dev": "npm run build:widget && npx wrangler dev",
     "deploy": "npm run build:widget && npx wrangler deploy"
   },

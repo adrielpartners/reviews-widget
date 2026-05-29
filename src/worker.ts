@@ -35,7 +35,7 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Refresh all active registered places
+    // Refresh all active registered places (concurrent batches to avoid overwhelming the Google API)
     let activePlaces: { placeId: string }[];
     try {
       activePlaces = await getActivePlaces(env.REVIEWS_KV);
@@ -44,18 +44,23 @@ export default {
       return;
     }
 
-    for (const place of activePlaces) {
-      try {
-        const result = await refreshPlace(env, place.placeId);
-        if (result.ok) {
-          console.info(`[scheduled] Refreshed ${place.placeId}: ${result.reviewCount} reviews`);
-        } else {
-          console.warn(`[scheduled] Failed ${place.placeId}: ${result.error}`);
-        }
-      } catch (err) {
-        // Continue to next place — never kill the whole run for one failure
-        console.error(`[scheduled] Error refreshing ${place.placeId}: ${err}`);
-      }
+    const CONCURRENCY_LIMIT = 3;
+    for (let i = 0; i < activePlaces.length; i += CONCURRENCY_LIMIT) {
+      const batch = activePlaces.slice(i, i + CONCURRENCY_LIMIT);
+      await Promise.allSettled(
+        batch.map(async (place) => {
+          try {
+            const result = await refreshPlace(env, place.placeId);
+            if (result.ok) {
+              console.info(`[scheduled] Refreshed ${place.placeId}: ${result.reviewCount} reviews`);
+            } else {
+              console.warn(`[scheduled] Failed ${place.placeId}: ${result.error}`);
+            }
+          } catch (err) {
+            console.error(`[scheduled] Error refreshing ${place.placeId}: ${err}`);
+          }
+        })
+      );
     }
   },
 };
