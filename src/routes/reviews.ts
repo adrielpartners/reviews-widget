@@ -2,7 +2,7 @@
 // Public reviews endpoint — reads cached review data from KV only.
 // GET /api/reviews?placeId=<place_id>
 
-import { jsonResponse, successEnvelope, errorEnvelope, CACHE_HEADERS_SHORT } from "../lib/envelopes";
+import { jsonResponse, successEnvelope, errorEnvelope, CACHE_HEADERS_SHORT, CORS_HEADERS } from "../lib/envelopes";
 import { ErrorCode } from "../types/errors";
 import { lookupReviews } from "../services/review-service";
 
@@ -28,7 +28,7 @@ export async function handleReviews(request: Request, kv: KVNamespace): Promise<
   }
 
   if (!PLACE_ID_PATTERN.test(placeId)) {
-    return jsonResponse(400, errorEnvelope(ErrorCode.INVALID_PLACE_ID, "placeId contains invalid characters"));
+    return jsonResponse(400, errorEnvelope(ErrorCode.INVALID_PLACE_ID, "placeId contains invalid characters"), CORS_HEADERS);
   }
 
   // Read from KV only — no Google calls
@@ -38,7 +38,7 @@ export async function handleReviews(request: Request, kv: KVNamespace): Promise<
     return jsonResponse(
       404,
       errorEnvelope(ErrorCode.REVIEWS_NOT_FOUND, "Reviews are not available for this business yet"),
-      CACHE_HEADERS_SHORT
+      { ...CACHE_HEADERS_SHORT, ...CORS_HEADERS }
     );
   }
 
@@ -52,6 +52,6 @@ export async function handleReviews(request: Request, kv: KVNamespace): Promise<
       reviews: cached.reviews,
       fetchedAt: cached.fetchedAt,
     }),
-    CACHE_HEADERS_SHORT
+    { ...CACHE_HEADERS_SHORT, ...CORS_HEADERS }
   );
 }

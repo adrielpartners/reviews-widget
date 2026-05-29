@@ -45,6 +45,7 @@ export function normalizeGoogleResponse(
     reviewCount,
     reviews,
     fetchedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
   };
 }
 

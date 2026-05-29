@@ -3,7 +3,7 @@
 // POST /api/admin/refresh-place
 // Body: { "placeId": "..." }
 
-import { jsonResponse, successEnvelope, errorEnvelope } from "../lib/envelopes";
+import { jsonResponse, successEnvelope, errorEnvelope, timingSafeEqual } from "../lib/envelopes";
 import { ErrorCode } from "../types/errors";
 import type { Env } from "../types/env";
 import { refreshPlace } from "../services/refresh-service";
@@ -23,7 +23,7 @@ export async function handleAdminRefresh(request: Request, env: Env): Promise<Re
   }
 
   const token = authHeader.slice(7);
-  if (token !== env.ADMIN_REFRESH_TOKEN) {
+  if (!timingSafeEqual(token, env.ADMIN_REFRESH_TOKEN)) {
     return jsonResponse(401, errorEnvelope(ErrorCode.UNAUTHORIZED, "Invalid token"));
   }
 

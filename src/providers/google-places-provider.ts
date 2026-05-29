@@ -57,7 +57,6 @@ export async function fetchPlaceReviews(
     clearTimeout(timeout);
 
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => "");
       return {
         ok: false,
         status: response.status,

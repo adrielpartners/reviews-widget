@@ -19,4 +19,5 @@ export interface NormalizedReviewCache {
   reviewCount: number;
   reviews: Review[];
   fetchedAt: string;
+  expiresAt: string;
 }

@@ -12,6 +12,18 @@ export interface RefreshResult {
   placeId: string;
   error?: string;
   reviewCount?: number;
+  attempts?: number;
+}
+
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
+function isRetryableError(code: string): boolean {
+  return code === "GOOGLE_API_TIMEOUT" || code === "GOOGLE_API_ERROR" || code === "GOOGLE_RATE_LIMITED" || code === "GOOGLE_API_FAILED";
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
 }
 
 /**
@@ -23,6 +35,25 @@ export async function refreshPlace(
   placeId: string
 ): Promise<RefreshResult> {
   const apiKey = env.GOOGLE_PLACES_API_KEY;
+  var lastError: RefreshResult | null = null;
+
+  for (var attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    const result = await tryRefreshPlace(env, placeId, apiKey, attempt);
+    if (result.ok) return result;
+    lastError = result;
+    if (!isRetryableError(result.error || "") || attempt > MAX_RETRIES) break;
+    await delay(RETRY_DELAY_MS * attempt);
+  }
+
+  return lastError!;
+}
+
+async function tryRefreshPlace(
+  env: Env,
+  placeId: string,
+  apiKey: string,
+  attempt: number
+): Promise<RefreshResult> {
 
   // Fetch from Google
   const providerResult = await fetchPlaceReviews(placeId, apiKey);
@@ -41,6 +72,7 @@ export async function refreshPlace(
       ok: false,
       placeId,
       error: providerResult.code,
+      attempts: attempt,
     };
   }
 
