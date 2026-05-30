@@ -178,7 +178,7 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
       ".rw-flyout-rating{font-weight:700;color:var(--rw-color-star);}",
       ".rw-flyout-count{font-size:var(--rw-font-size-xs);color:var(--rw-color-text-secondary);}",
       ".rw-flyout-panel{position:relative;padding:var(--rw-space-3) var(--rw-space-3) var(--rw-space-2);}",
-      ".rw-flyout-collapse{position:absolute;top:0;right:0;z-index:2;background:var(--rw-color-card-bg);border:1px solid var(--rw-color-border);border-radius:50%;width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;font-size:0.875rem;cursor:pointer;color:var(--rw-color-text-secondary);line-height:1;}",
+      ".rw-flyout-collapse{position:absolute;top:10px;right:10px;z-index:2;background:var(--rw-color-card-bg);border:1px solid var(--rw-color-border);border-radius:50%;width:2.5rem;height:2.5rem;display:flex;align-items:center;justify-content:center;font-size:1.25rem;cursor:pointer;color:var(--rw-color-text-secondary);line-height:1;}",
       ".rw-flyout-collapse:hover{background:var(--rw-color-border);}",
       ".rw-flyout-review{margin-bottom:var(--rw-space-2);}",
       ".rw-flyout-dots{display:flex;gap:var(--rw-space-1);justify-content:center;margin-bottom:var(--rw-space-2);}",
@@ -460,6 +460,16 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
   // Show a modal overlay with the full review text.
   // Returns a function to close the modal.
   window.ReviewsWidget.showModal = function (data) {
+    // Hide flyout if open so it doesn't overlap the modal
+    var flyoutEl = document.querySelector(".rw-mode-flyout");
+    var flyoutWasVisible = false;
+    var flyoutPanel = null;
+    if (flyoutEl) {
+      flyoutPanel = flyoutEl.querySelector(".rw-flyout-panel");
+      flyoutWasVisible = flyoutPanel && flyoutPanel.style.display !== "none";
+      flyoutEl.style.display = "none";
+    }
+
     var root = document.createElement("div");
     root.className = "rw-modal-overlay";
     root.setAttribute("role", "dialog");
@@ -525,6 +535,10 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
     function close() {
       document.removeEventListener("keydown", keyHandler);
       if (root.parentNode) root.parentNode.removeChild(root);
+      // Restore flyout if it was visible before the modal opened
+      if (flyoutEl && flyoutWasVisible) {
+        flyoutEl.style.display = "";
+      }
     }
 
     return close;

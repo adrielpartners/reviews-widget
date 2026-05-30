@@ -7,6 +7,16 @@
   // Show a modal overlay with the full review text.
   // Returns a function to close the modal.
   window.ReviewsWidget.showModal = function (data) {
+    // Hide flyout if open so it doesn't overlap the modal
+    var flyoutEl = document.querySelector(".rw-mode-flyout");
+    var flyoutWasVisible = false;
+    var flyoutPanel = null;
+    if (flyoutEl) {
+      flyoutPanel = flyoutEl.querySelector(".rw-flyout-panel");
+      flyoutWasVisible = flyoutPanel && flyoutPanel.style.display !== "none";
+      flyoutEl.style.display = "none";
+    }
+
     var root = document.createElement("div");
     root.className = "rw-modal-overlay";
     root.setAttribute("role", "dialog");
@@ -72,6 +82,10 @@
     function close() {
       document.removeEventListener("keydown", keyHandler);
       if (root.parentNode) root.parentNode.removeChild(root);
+      // Restore flyout if it was visible before the modal opened
+      if (flyoutEl && flyoutWasVisible) {
+        flyoutEl.style.display = "";
+      }
     }
 
     return close;
