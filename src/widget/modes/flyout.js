@@ -87,6 +87,22 @@
     });
     rootEl.insertBefore(collapseBtn, rootEl.firstChild);
 
+    // Flyout entrance animation — fade in from right
+    if (!reducedMotion) {
+      rootEl.style.opacity = "0";
+      rootEl.style.transform = "translateX(60px)";
+      rootEl.style.transition = "none";
+      rootEl.offsetHeight; // force reflow
+      rootEl.style.transition = "transform 0.4s ease, opacity 0.4s ease";
+      rootEl.style.transform = "translateX(0)";
+      rootEl.style.opacity = "1";
+      setTimeout(function () {
+        rootEl.style.transition = "";
+        rootEl.style.transform = "";
+        rootEl.style.opacity = "";
+      }, 450);
+    }
+
     // Toggle panel on summary click
     summary.addEventListener("click", function () {
       isOpen = !isOpen;
@@ -130,7 +146,33 @@
 
     function showReview(idx) {
       currentIndex = idx;
+
+      // Crossfade: fade out old content, fade in new
+      if (!reducedMotion && reviewArea.children.length > 0) {
+        reviewArea.style.transition = "opacity 0.2s ease";
+        reviewArea.style.opacity = "0";
+        setTimeout(function () {
+          renderReviewContent(idx);
+          reviewArea.style.opacity = "0";
+          reviewArea.style.transition = "none";
+          reviewArea.offsetHeight; // force reflow
+          reviewArea.style.transition = "opacity 0.3s ease";
+          reviewArea.style.opacity = "1";
+        }, 220);
+      } else {
+        renderReviewContent(idx);
+      }
+
+      // Update active dot
+      for (var j = 0; j < dots.length; j++) {
+        dots[j].classList.toggle("rw-carousel-dot--active", j === idx);
+      }
+    }
+
+    function renderReviewContent(idx) {
       reviewArea.innerHTML = "";
+      reviewArea.style.opacity = "1";
+      reviewArea.style.transition = "";
 
       window.ReviewsWidget.renderReviewCard(reviewArea, reviews[idx], { maxCharacters: 300 });
 
@@ -144,11 +186,6 @@
           };
         })(reviews[idx]));
         reviewArea.appendChild(moreLink);
-      }
-
-      // Update active dot
-      for (var j = 0; j < dots.length; j++) {
-        dots[j].classList.toggle("rw-carousel-dot--active", j === idx);
       }
     }
 

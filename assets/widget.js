@@ -170,7 +170,8 @@
       ".rw-cta:hover{opacity:.85;}",
       ".rw-cta-icon{width:1em;height:1em;fill:currentColor;}",
       // Flyout mode
-      ".rw-mode-flyout{position:fixed;z-index:var(--rw-z-flyout);max-width:360px;width:100%;box-shadow:var(--rw-shadow-lg);border-radius:var(--rw-radius-lg);transition:transform var(--rw-transition-base),opacity var(--rw-transition-base);}",
+      ".rw-mode-flyout{position:fixed;z-index:var(--rw-z-flyout);max-width:360px;width:100%;box-shadow:var(--rw-shadow-lg);border-radius:var(--rw-radius-lg);transition:opacity var(--rw-transition-base);}",
+      ".rw-mode-flyout.rw-flyout-animating{transition:transform 0.4s ease,opacity 0.4s ease;}",
       ".rw-flyout-summary{display:flex;align-items:center;gap:var(--rw-space-2);padding:var(--rw-space-3) var(--rw-space-4);cursor:pointer;user-select:none;}",
       ".rw-flyout-rating{font-weight:700;color:var(--rw-color-star);}",
       ".rw-flyout-count{font-size:var(--rw-font-size-xs);color:var(--rw-color-text-secondary);}",
@@ -183,8 +184,17 @@
       ".rw-mode-flyout.rw-position--bottom-left{bottom:var(--rw-space-4);left:var(--rw-space-4);}",
       ".rw-mode-flyout.rw-position--bottom-center{bottom:var(--rw-space-4);left:50%;transform:translateX(-50%);}",
       // Modal
-      ".rw-modal-overlay{position:fixed;inset:0;z-index:var(--rw-z-modal);background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:var(--rw-space-4);}",
-      ".rw-modal{background:#ffffff;border-radius:1rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:2.5rem;position:relative;box-shadow:0 25px 60px rgba(0,0,0,0.2);border:1px solid #e5e7eb;}",
+      // Animations
+      "@keyframes rw-fade-in-up{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}",
+      "@keyframes rw-fade-out-down{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(30px);}}",
+      "@keyframes rw-fade-in-right{from{opacity:0;transform:translateX(60px);}to{opacity:1;transform:translateX(0);}}",
+      "@keyframes rw-fade-out-right{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(60px);}}",
+      "@keyframes rw-fade-in{from{opacity:0;}to{opacity:1;}}",
+      "@keyframes rw-fade-out{from{opacity:1;}to{opacity:0;}}",
+      ".rw-modal-overlay{position:fixed;inset:0;z-index:var(--rw-z-modal);background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:var(--rw-space-4);animation:rw-fade-in .3s ease forwards;}",
+      ".rw-modal-overlay.rw-closing{animation:rw-fade-out .25s ease forwards;}",
+      ".rw-modal{background:#ffffff;border-radius:1rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:2.5rem;position:relative;box-shadow:0 25px 60px rgba(0,0,0,0.2);border:1px solid #e5e7eb;animation:rw-fade-in-up .35s ease forwards;}",
+      ".rw-modal-overlay.rw-closing .rw-modal{animation:rw-fade-out-down .25s ease forwards;}",
       ".rw-modal-close{position:absolute;top:1rem;right:1rem;background:#ffffff;border:1px solid #e5e7eb;border-radius:50%;width:3.5rem;height:3.5rem;display:flex;align-items:center;justify-content:center;font-size:3.375rem;cursor:pointer;color:#6b7280;z-index:1;line-height:1;}",
       ".rw-modal-close:hover{background:#f3f4f6;}",
       ".rw-modal-author{font-weight:700;font-size:2.25rem;margin-bottom:1.125rem;}",
@@ -457,14 +467,27 @@
   // Show a modal overlay with the full review text.
   // Returns a function to close the modal.
   window.ReviewsWidget.showModal = function (data) {
-    // Hide flyout if open so it doesn't overlap the modal
+    // Fade out flyout if open so it doesn't overlap the modal
     var flyoutEl = document.querySelector(".rw-mode-flyout");
     var flyoutWasVisible = false;
-    var flyoutPanel = null;
+    var prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (flyoutEl) {
-      flyoutPanel = flyoutEl.querySelector(".rw-flyout-panel");
+      var flyoutPanel = flyoutEl.querySelector(".rw-flyout-panel");
       flyoutWasVisible = flyoutPanel && flyoutPanel.style.display !== "none";
-      flyoutEl.style.display = "none";
+      if (!prefersReducedMotion && flyoutWasVisible) {
+        flyoutEl.classList.add("rw-flyout-hiding");
+        flyoutEl.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+        flyoutEl.style.transform = "translateX(60px)";
+        flyoutEl.style.opacity = "0";
+        setTimeout(function () {
+          flyoutEl.style.display = "none";
+          flyoutEl.classList.remove("rw-flyout-hiding");
+          flyoutEl.style.transform = "";
+          flyoutEl.style.opacity = "";
+        }, 300);
+      } else {
+        flyoutEl.style.display = "none";
+      }
     }
 
     var root = document.createElement("div");
@@ -531,11 +554,23 @@
 
     function close() {
       document.removeEventListener("keydown", keyHandler);
-      if (root.parentNode) root.parentNode.removeChild(root);
-      // Restore flyout if it was visible before the modal opened
+      // Animate modal + overlay out
+      root.classList.add("rw-closing");
+      // Restore flyout with animation if it was visible
       if (flyoutEl && flyoutWasVisible) {
         flyoutEl.style.display = "";
+        flyoutEl.style.opacity = "0";
+        flyoutEl.style.transform = "translateX(60px)";
+        flyoutEl.style.transition = "none";
+        // Force reflow then animate in
+        flyoutEl.offsetHeight; // eslint-disable-line
+        flyoutEl.style.transition = "transform 0.35s ease, opacity 0.35s ease";
+        flyoutEl.style.transform = "translateX(0)";
+        flyoutEl.style.opacity = "1";
       }
+      setTimeout(function () {
+        if (root.parentNode) root.parentNode.removeChild(root);
+      }, 280);
     }
 
     return close;
@@ -913,6 +948,22 @@
     });
     rootEl.insertBefore(collapseBtn, rootEl.firstChild);
 
+    // Flyout entrance animation — fade in from right
+    if (!reducedMotion) {
+      rootEl.style.opacity = "0";
+      rootEl.style.transform = "translateX(60px)";
+      rootEl.style.transition = "none";
+      rootEl.offsetHeight; // force reflow
+      rootEl.style.transition = "transform 0.4s ease, opacity 0.4s ease";
+      rootEl.style.transform = "translateX(0)";
+      rootEl.style.opacity = "1";
+      setTimeout(function () {
+        rootEl.style.transition = "";
+        rootEl.style.transform = "";
+        rootEl.style.opacity = "";
+      }, 450);
+    }
+
     // Toggle panel on summary click
     summary.addEventListener("click", function () {
       isOpen = !isOpen;
@@ -956,7 +1007,33 @@
 
     function showReview(idx) {
       currentIndex = idx;
+
+      // Crossfade: fade out old content, fade in new
+      if (!reducedMotion && reviewArea.children.length > 0) {
+        reviewArea.style.transition = "opacity 0.2s ease";
+        reviewArea.style.opacity = "0";
+        setTimeout(function () {
+          renderReviewContent(idx);
+          reviewArea.style.opacity = "0";
+          reviewArea.style.transition = "none";
+          reviewArea.offsetHeight; // force reflow
+          reviewArea.style.transition = "opacity 0.3s ease";
+          reviewArea.style.opacity = "1";
+        }, 220);
+      } else {
+        renderReviewContent(idx);
+      }
+
+      // Update active dot
+      for (var j = 0; j < dots.length; j++) {
+        dots[j].classList.toggle("rw-carousel-dot--active", j === idx);
+      }
+    }
+
+    function renderReviewContent(idx) {
       reviewArea.innerHTML = "";
+      reviewArea.style.opacity = "1";
+      reviewArea.style.transition = "";
 
       window.ReviewsWidget.renderReviewCard(reviewArea, reviews[idx], { maxCharacters: 300 });
 
@@ -970,11 +1047,6 @@
           };
         })(reviews[idx]));
         reviewArea.appendChild(moreLink);
-      }
-
-      // Update active dot
-      for (var j = 0; j < dots.length; j++) {
-        dots[j].classList.toggle("rw-carousel-dot--active", j === idx);
       }
     }
 

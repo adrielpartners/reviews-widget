@@ -7,14 +7,27 @@
   // Show a modal overlay with the full review text.
   // Returns a function to close the modal.
   window.ReviewsWidget.showModal = function (data) {
-    // Hide flyout if open so it doesn't overlap the modal
+    // Fade out flyout if open so it doesn't overlap the modal
     var flyoutEl = document.querySelector(".rw-mode-flyout");
     var flyoutWasVisible = false;
-    var flyoutPanel = null;
+    var prefersReducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (flyoutEl) {
-      flyoutPanel = flyoutEl.querySelector(".rw-flyout-panel");
+      var flyoutPanel = flyoutEl.querySelector(".rw-flyout-panel");
       flyoutWasVisible = flyoutPanel && flyoutPanel.style.display !== "none";
-      flyoutEl.style.display = "none";
+      if (!prefersReducedMotion && flyoutWasVisible) {
+        flyoutEl.classList.add("rw-flyout-hiding");
+        flyoutEl.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+        flyoutEl.style.transform = "translateX(60px)";
+        flyoutEl.style.opacity = "0";
+        setTimeout(function () {
+          flyoutEl.style.display = "none";
+          flyoutEl.classList.remove("rw-flyout-hiding");
+          flyoutEl.style.transform = "";
+          flyoutEl.style.opacity = "";
+        }, 300);
+      } else {
+        flyoutEl.style.display = "none";
+      }
     }
 
     var root = document.createElement("div");
@@ -81,11 +94,23 @@
 
     function close() {
       document.removeEventListener("keydown", keyHandler);
-      if (root.parentNode) root.parentNode.removeChild(root);
-      // Restore flyout if it was visible before the modal opened
+      // Animate modal + overlay out
+      root.classList.add("rw-closing");
+      // Restore flyout with animation if it was visible
       if (flyoutEl && flyoutWasVisible) {
         flyoutEl.style.display = "";
+        flyoutEl.style.opacity = "0";
+        flyoutEl.style.transform = "translateX(60px)";
+        flyoutEl.style.transition = "none";
+        // Force reflow then animate in
+        flyoutEl.offsetHeight; // eslint-disable-line
+        flyoutEl.style.transition = "transform 0.35s ease, opacity 0.35s ease";
+        flyoutEl.style.transform = "translateX(0)";
+        flyoutEl.style.opacity = "1";
       }
+      setTimeout(function () {
+        if (root.parentNode) root.parentNode.removeChild(root);
+      }, 280);
     }
 
     return close;
