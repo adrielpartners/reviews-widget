@@ -74,6 +74,18 @@
 
     rootEl.appendChild(panel);
 
+    // Minus button (collapse) in top-right of panel
+    var collapseBtn = document.createElement("button");
+    collapseBtn.className = "rw-flyout-collapse";
+    collapseBtn.setAttribute("aria-label", "Minimize reviews");
+    collapseBtn.textContent = "\u2212"; // minus sign (−)
+    collapseBtn.addEventListener("click", function () {
+      isOpen = false;
+      panel.style.display = "none";
+      stopAuto();
+    });
+    panel.insertBefore(collapseBtn, panel.firstChild);
+
     // Toggle panel on summary click
     summary.addEventListener("click", function () {
       isOpen = !isOpen;
@@ -98,7 +110,7 @@
       document.cookie = name + "=" + value + ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
     }
 
-    // Show flyout automatically if not seen before
+    // Auto-open panel on first visit (after short delay)
     if (!getCookie(COOKIE_NAME)) {
       setTimeout(function () {
         isOpen = true;
@@ -106,7 +118,13 @@
         showReview(0);
         startAuto();
         setCookie(COOKIE_NAME, "1", 30);
-      }, 2000);
+      }, 1000);
+    } else {
+      // Returning visitor: auto-open immediately
+      isOpen = true;
+      panel.style.display = "block";
+      showReview(0);
+      startAuto();
     }
 
     function showReview(idx) {

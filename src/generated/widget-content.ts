@@ -174,6 +174,14 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
       ".rw-cta-icon{width:1em;height:1em;fill:currentColor;}",
       // Flyout mode
       ".rw-mode-flyout{position:fixed;z-index:var(--rw-z-flyout);max-width:360px;width:100%;box-shadow:var(--rw-shadow-lg);border-radius:var(--rw-radius-lg);transition:transform var(--rw-transition-base),opacity var(--rw-transition-base);}",
+      ".rw-flyout-summary{display:flex;align-items:center;gap:var(--rw-space-2);padding:var(--rw-space-3) var(--rw-space-4);cursor:pointer;user-select:none;}",
+      ".rw-flyout-rating{font-weight:700;color:var(--rw-color-star);}",
+      ".rw-flyout-count{font-size:var(--rw-font-size-xs);color:var(--rw-color-text-secondary);}",
+      ".rw-flyout-panel{position:relative;padding:0 var(--rw-space-4) var(--rw-space-4);}",
+      ".rw-flyout-collapse{position:absolute;top:var(--rw-space-2);right:var(--rw-space-2);background:none;border:1px solid var(--rw-color-border);border-radius:var(--rw-radius-full);width:1.75rem;height:1.75rem;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;color:var(--rw-color-text-secondary);line-height:1;z-index:1;}",
+      ".rw-flyout-collapse:hover{background:var(--rw-color-card-bg);}",
+      ".rw-flyout-review{margin-bottom:var(--rw-space-3);}",
+      ".rw-flyout-dots{display:flex;gap:var(--rw-space-1);justify-content:center;margin-bottom:var(--rw-space-3);}",
       ".rw-mode-flyout.rw-position--bottom-right{bottom:var(--rw-space-4);right:var(--rw-space-4);}",
       ".rw-mode-flyout.rw-position--bottom-left{bottom:var(--rw-space-4);left:var(--rw-space-4);}",
       ".rw-mode-flyout.rw-position--bottom-center{bottom:var(--rw-space-4);left:50%;transform:translateX(-50%);}",
@@ -881,6 +889,18 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
 
     rootEl.appendChild(panel);
 
+    // Minus button (collapse) in top-right of panel
+    var collapseBtn = document.createElement("button");
+    collapseBtn.className = "rw-flyout-collapse";
+    collapseBtn.setAttribute("aria-label", "Minimize reviews");
+    collapseBtn.textContent = "\\u2212"; // minus sign (−)
+    collapseBtn.addEventListener("click", function () {
+      isOpen = false;
+      panel.style.display = "none";
+      stopAuto();
+    });
+    panel.insertBefore(collapseBtn, panel.firstChild);
+
     // Toggle panel on summary click
     summary.addEventListener("click", function () {
       isOpen = !isOpen;
@@ -905,7 +925,7 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
       document.cookie = name + "=" + value + ";expires=" + d.toUTCString() + ";path=/;SameSite=Lax";
     }
 
-    // Show flyout automatically if not seen before
+    // Auto-open panel on first visit (after short delay)
     if (!getCookie(COOKIE_NAME)) {
       setTimeout(function () {
         isOpen = true;
@@ -913,7 +933,13 @@ export const WIDGET_JS: string = `// Reviews Widget v1.0.0
         showReview(0);
         startAuto();
         setCookie(COOKIE_NAME, "1", 30);
-      }, 2000);
+      }, 1000);
+    } else {
+      // Returning visitor: auto-open immediately
+      isOpen = true;
+      panel.style.display = "block";
+      showReview(0);
+      startAuto();
     }
 
     function showReview(idx) {
