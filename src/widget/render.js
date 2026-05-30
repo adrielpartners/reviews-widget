@@ -39,9 +39,15 @@
       ".rw-mode-flyout.rw-position--bottom-center{bottom:var(--rw-space-4);left:50%;transform:translateX(-50%);}",
       // Modal
       ".rw-modal-overlay{position:fixed;inset:0;z-index:var(--rw-z-modal);background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:var(--rw-space-4);}",
-      ".rw-modal{background:#ffffff;border-radius:1rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:var(--rw-space-8);position:relative;box-shadow:0 25px 60px rgba(0,0,0,0.2);border:1px solid #e5e7eb;}",
-      ".rw-modal-close{position:absolute;top:var(--rw-space-3);right:var(--rw-space-3);background:var(--rw-color-card-bg);border:1px solid var(--rw-color-border);border-radius:var(--rw-radius-full);width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;font-size:var(--rw-font-size-sm);cursor:pointer;color:var(--rw-color-text-secondary);}",
-      ".rw-modal-text{font-size:var(--rw-font-size-sm);line-height:1.7;color:var(--rw-color-text);margin:0;}",
+      ".rw-modal{background:#ffffff;border-radius:1rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:2.5rem;position:relative;box-shadow:0 25px 60px rgba(0,0,0,0.2);border:1px solid #e5e7eb;}",
+      ".rw-modal-close{position:absolute;top:1rem;right:1rem;background:#ffffff;border:1px solid #e5e7eb;border-radius:50%;width:3.5rem;height:3.5rem;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;color:#6b7280;z-index:1;line-height:1;}",
+      ".rw-modal-close:hover{background:#f3f4f6;}",
+      ".rw-modal-author{font-weight:700;font-size:1rem;margin-bottom:0.5rem;}",
+      ".rw-modal-stars{display:flex;gap:2px;font-size:1rem;line-height:1;margin-bottom:1rem;}",
+      ".rw-modal-stars .rw-star--filled{color:#f59e0b;}",
+      ".rw-modal-stars .rw-star--empty{color:#d1d5db;}",
+      ".rw-modal-text{font-size:0.875rem;line-height:1.7;color:#1a1a2e;margin:0;}",
+      ".rw-modal-time{font-size:0.75rem;color:#6b7280;margin-top:1rem;}",
       // Carousel
       ".rw-carousel{position:relative;overflow:hidden;padding:0 2.5rem;}",
       ".rw-carousel-track{display:flex;transition:transform var(--rw-transition-base);}",
