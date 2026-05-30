@@ -74,17 +74,18 @@
 
     rootEl.appendChild(panel);
 
-    // Minus button (collapse) in top-right of panel
+    // Minus button (collapse) — top-right of the outer wrapper
     var collapseBtn = document.createElement("button");
     collapseBtn.className = "rw-flyout-collapse";
     collapseBtn.setAttribute("aria-label", "Minimize reviews");
-    collapseBtn.textContent = "\u2212"; // minus sign (−)
-    collapseBtn.addEventListener("click", function () {
+    collapseBtn.textContent = "\u2212";
+    collapseBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
       isOpen = false;
       panel.style.display = "none";
       stopAuto();
     });
-    panel.insertBefore(collapseBtn, panel.firstChild);
+    rootEl.insertBefore(collapseBtn, rootEl.firstChild);
 
     // Toggle panel on summary click
     summary.addEventListener("click", function () {
