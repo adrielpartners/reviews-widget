@@ -80,6 +80,7 @@
       panel.style.display = isOpen ? "block" : "none";
       if (isOpen) {
         showReview(0);
+        startAuto();
       } else {
         stopAuto();
       }
@@ -103,6 +104,7 @@
         isOpen = true;
         panel.style.display = "block";
         showReview(0);
+        startAuto();
         setCookie(COOKIE_NAME, "1", 30);
       }, 2000);
     }

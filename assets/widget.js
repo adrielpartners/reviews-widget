@@ -177,14 +177,14 @@
       // Modal
       ".rw-modal-overlay{position:fixed;inset:0;z-index:var(--rw-z-modal);background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:var(--rw-space-4);}",
       ".rw-modal{background:#ffffff;border-radius:1rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:2.5rem;position:relative;box-shadow:0 25px 60px rgba(0,0,0,0.2);border:1px solid #e5e7eb;}",
-      ".rw-modal-close{position:absolute;top:1rem;right:1rem;background:#ffffff;border:1px solid #e5e7eb;border-radius:50%;width:3.5rem;height:3.5rem;display:flex;align-items:center;justify-content:center;font-size:4.5rem;cursor:pointer;color:#6b7280;z-index:1;line-height:1;}",
+      ".rw-modal-close{position:absolute;top:1rem;right:1rem;background:#ffffff;border:1px solid #e5e7eb;border-radius:50%;width:3.5rem;height:3.5rem;display:flex;align-items:center;justify-content:center;font-size:3.375rem;cursor:pointer;color:#6b7280;z-index:1;line-height:1;}",
       ".rw-modal-close:hover{background:#f3f4f6;}",
-      ".rw-modal-author{font-weight:700;font-size:3rem;margin-bottom:1.5rem;}",
-      ".rw-modal-stars{display:flex;gap:4px;font-size:3rem;line-height:1;margin-bottom:2rem;}",
+      ".rw-modal-author{font-weight:700;font-size:2.25rem;margin-bottom:1.125rem;}",
+      ".rw-modal-stars{display:flex;gap:3px;font-size:2.25rem;line-height:1;margin-bottom:1.5rem;}",
       ".rw-modal-stars .rw-star--filled{color:#f59e0b;}",
       ".rw-modal-stars .rw-star--empty{color:#d1d5db;}",
-      ".rw-modal-text{font-size:2.625rem;line-height:1.7;color:#1a1a2e;margin:0;}",
-      ".rw-modal-time{font-size:2.25rem;color:#6b7280;margin-top:2rem;}",
+      ".rw-modal-text{font-size:1.96875rem;line-height:1.7;color:#1a1a2e;margin:0;}",
+      ".rw-modal-time{font-size:1.6875rem;color:#6b7280;margin-top:1.5rem;}",
       // Carousel
       ".rw-carousel{position:relative;overflow:hidden;padding:0 2.5rem;}",
       ".rw-carousel-track{display:flex;transition:transform var(--rw-transition-base);}",
@@ -884,6 +884,7 @@
       panel.style.display = isOpen ? "block" : "none";
       if (isOpen) {
         showReview(0);
+        startAuto();
       } else {
         stopAuto();
       }
@@ -907,6 +908,7 @@
         isOpen = true;
         panel.style.display = "block";
         showReview(0);
+        startAuto();
         setCookie(COOKIE_NAME, "1", 30);
       }, 2000);
     }
