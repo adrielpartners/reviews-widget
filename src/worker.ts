@@ -8,6 +8,7 @@ import { handleHealth } from "./routes/health";
 import { handleReviews } from "./routes/reviews";
 import { handleWidget } from "./routes/widget";
 import { handleAdminRefresh } from "./routes/admin-refresh";
+import { handleSetup } from "./routes/setup";
 import { refreshPlace } from "./services/refresh-service";
 import { getActivePlaces } from "./storage/place-registry-store";
 
@@ -29,6 +30,10 @@ export default {
 
     if (url.pathname === "/api/admin/refresh-place") {
       return handleAdminRefresh(request, env);
+    }
+
+    if (url.pathname === "/setup") {
+      return handleSetup();
     }
 
     return jsonResponse(404, errorEnvelope(ErrorCode.NOT_FOUND, "Not found"));
