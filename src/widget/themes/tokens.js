@@ -12,10 +12,11 @@
   BASE["--rw-color-cta-bg"] = "#2563eb";
   BASE["--rw-color-cta-text"] = "#ffffff";
   BASE["--rw-color-card-bg"] = "#ffffff";
-  BASE["--rw-color-overlay"] = "rgba(0,0,0,0.5)";
+  BASE["--rw-color-overlay"] = "rgba(0,0,0,0.6)";
   BASE["--rw-color-modal-bg"] = "#ffffff";
   BASE["--rw-font-family"] = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-  BASE["--rw-font-size-xs"] = "1.125rem";
+  BASE["--rw-radius-lg"] = "1rem";
+  BASE["--rw-shadow-xl"] = "0 25px 60px rgba(0,0,0,0.2)";
   BASE["--rw-font-size-sm"] = "1.3125rem";
   BASE["--rw-font-size-base"] = "1.5rem";
   BASE["--rw-font-size-lg"] = "1.6875rem";
