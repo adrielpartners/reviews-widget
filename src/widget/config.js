@@ -7,7 +7,7 @@
     layout: "grid",
     theme: "default",
     position: "bottom-right",
-    maxReviews: 3
+    maxReviews: 5
   };
 
   var VALID_MODES = ["inline", "flyout"];
