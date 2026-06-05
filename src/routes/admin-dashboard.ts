@@ -437,7 +437,7 @@ function renderCard(p) {
     + '<div class="business">' + esc(p.businessName) + ' <span style="color:#cbd5e1">&middot;</span> ' + esc(p.placeId.slice(0, 12)) + '&hellip;</div>'
     + '</div>'
     + '<div class="place-actions">'
-    + '<button class="btn btn-outline btn-sm" onclick="openConfig(\'' + jsStr(p.placeId) + '\')">&#x2699;&#xfe0f; Edit Config</button>'
+    + '<button class="btn btn-outline btn-sm" data-place-id="' + jsStr(p.placeId) + '" onclick="openConfig(this.dataset.placeId)">⚙️ Edit Config</button>'
     + '</div>'
     + '</div>'
     + '<div class="place-stats">'
