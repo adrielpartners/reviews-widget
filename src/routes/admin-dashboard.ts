@@ -669,6 +669,16 @@ if (stored) {
   showLogin();
 }
 
+// Expose functions to global scope for inline onclick handlers
+window.openAddPlace = openAddPlace;
+window.submitAddPlace = submitAddPlace;
+window.openConfig = openConfig;
+window.saveConfig = saveConfig;
+window.closeModal = closeModal;
+window.logout = logout;
+window.refreshDashboard = refreshDashboard;
+window.applyThemeColors = applyThemeColors;
+
 })();
 </script>
 </body>
