@@ -104,6 +104,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .color-item input[type=color]::-webkit-color-swatch{border:1px solid #cbd5e1;border-radius:0.25rem}
 .font-section{margin-top:0.75rem}
 
+/* Embed code in config modal */
+.embed-section{margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid #e2e8f0}
+.embed-section h3{font-size:0.9375rem;font-weight:700;color:#0f172a;margin-bottom:0.5rem}
+.embed-code{background:#0f172a;color:#e2e8f0;padding:1rem;border-radius:0.5rem;font-size:0.75rem;line-height:1.6;overflow-x:auto;white-space:pre;font-family:'SF Mono','Fira Code','Cascadia Code',monospace;margin-bottom:0.75rem}
+
 /* Toast notifications */
 .toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:2000;background:#0f172a;color:#f1f5f9;padding:0.75rem 1.25rem;border-radius:0.5rem;font-size:0.875rem;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,0.2);opacity:0;transform:translateY(20px);transition:all 0.3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
@@ -265,6 +270,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('configModal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveConfig()">&#x1f4be; Save Config</button>
+    </div>
+    <div class="embed-section">
+      <h3>&#x1f4cb; Embed Code</h3>
+      <p class="hint" style="margin-bottom:0.5rem">Copy this onto the client&rsquo;s site. Empty <code>data-*</code> attributes are placeholders &mdash; the widget uses Admin-configured defaults unless the client fills them in.</p>
+      <pre class="embed-code" id="embedCodeOutput"></pre>
+      <button class="btn btn-outline btn-sm" onclick="copyEmbedCode()">&#x1f4cb; Copy</button>
     </div>
   </div>
 </div>
@@ -532,6 +543,7 @@ function openConfig(placeId) {
     applyThemeColors();
     _cachedPlaces[placeId] = place;
     openModal('configModal');
+    genEmbedCode(placeId);
   }).catch(function(e) {
     toast('Failed to load config: ' + e.message, 'error');
   });
@@ -642,6 +654,54 @@ function saveConfig() {
   });
 }
 
+function genEmbedCode(placeId) {
+  var attrs = [
+    'data-mode=""',
+    'data-layout=""',
+    'data-theme=""',
+    'data-position=""',
+    'data-max-reviews=""',
+    'data-cta-text=""',
+    'data-cta-url=""',
+    'data-mount=""',
+    'data-custom-class=""',
+    'data-color-bg=""',
+    'data-color-text=""',
+    'data-color-text-secondary=""',
+    'data-color-border=""',
+    'data-color-star=""',
+    'data-color-star-empty=""',
+    'data-color-cta-bg=""',
+    'data-color-cta-text=""',
+    'data-color-card-bg=""',
+    'data-font-size-headline=""',
+    'data-font-size-testimonial=""',
+    'data-font-size-author=""',
+    'data-font-size-read-more=""',
+    'data-font-family-headline=""',
+    'data-font-family-body=""'
+  ];
+  var tag = '<script\\n';
+  tag += '  src="https://reviews.marketinghero.net/widget.js"\\n';
+  tag += '  data-place-id="' + esc(placeId) + '"\\n';
+  for (var i = 0; i < attrs.length; i++) {
+    tag += '  ' + attrs[i] + '\\n';
+  }
+  tag += '  async\\n';
+  tag += '><\\/script>';
+  document.getElementById('embedCodeOutput').textContent = tag;
+}
+
+function copyEmbedCode() {
+  var el = document.getElementById('embedCodeOutput');
+  if (!el || !el.textContent) return;
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    toast('Embed code copied!', 'success');
+  }).catch(function() {
+    toast('Failed to copy', 'error');
+  });
+}
+
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -678,6 +738,8 @@ window.closeModal = closeModal;
 window.logout = logout;
 window.refreshDashboard = refreshDashboard;
 window.applyThemeColors = applyThemeColors;
+window.genEmbedCode = genEmbedCode;
+window.copyEmbedCode = copyEmbedCode;
 
 })();
 </script>
