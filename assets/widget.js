@@ -31,9 +31,11 @@
       return null;
     }
 
-    var maxReviews = parseInt(dataset.maxReviews || String(DEFAULTS.maxReviews), 10);
-    if (isNaN(maxReviews) || maxReviews < 1) maxReviews = DEFAULTS.maxReviews;
-    if (maxReviews > MAX_REVIEWS_CAP) maxReviews = MAX_REVIEWS_CAP;
+    var maxReviews = undefined;
+    if (dataset.maxReviews) {
+      var parsed = parseInt(dataset.maxReviews, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= MAX_REVIEWS_CAP) maxReviews = parsed;
+    }
 
     // Parse custom color overrides from data-color-* attributes
     var customColors = {};
@@ -67,10 +69,10 @@
 
     return {
       placeId: placeId,
-      mode: sanitizeEnum(dataset.mode, VALID_MODES, DEFAULTS.mode),
-      layout: sanitizeEnum(dataset.layout, VALID_LAYOUTS, DEFAULTS.layout),
-      theme: sanitizeEnum(dataset.theme, VALID_THEMES, DEFAULTS.theme),
-      position: sanitizeEnum(dataset.position, VALID_POSITIONS, DEFAULTS.position),
+      mode: sanitizeEnum(dataset.mode, VALID_MODES),
+      layout: sanitizeEnum(dataset.layout, VALID_LAYOUTS),
+      theme: sanitizeEnum(dataset.theme, VALID_THEMES),
+      position: sanitizeEnum(dataset.position, VALID_POSITIONS),
       maxReviews: maxReviews,
       ctaText: sanitizeText(dataset.ctaText),
       ctaUrl: sanitizeUrl(dataset.ctaUrl),
@@ -122,29 +124,36 @@
   // Merge remote widget defaults with local data-* overrides.
   // Remote config: the defaults set by the admin dashboard.
   // Local config: parsed from the embed script tag's data-* attributes.
-  // Rule: local (data-*) value always wins over remote default.
+  // Rule: remote provides defaults, local data-* overrides win.
   window.ReviewsWidget.mergeConfig = function (remote, local) {
-    if (!remote) return local;
-
-    var merged = {};
-    // Start with all local values
-    for (var k in local) {
-      if (local.hasOwnProperty(k)) merged[k] = local[k];
+    if (!remote) {
+      // No remote config — apply DEFAULTS where local left values undefined
+      for (var dk in DEFAULTS) {
+        if (local[dk] === undefined || local[dk] === null) local[dk] = DEFAULTS[dk];
+      }
+      return local;
     }
 
-    // Fill in remote defaults where local didn't provide a value
-    var REMOTE_KEYS = [
-      "mode", "layout", "theme", "position", "maxReviews",
-      "ctaText", "ctaUrl", "mount", "customClass"
-    ];
-    for (var ri = 0; ri < REMOTE_KEYS.length; ri++) {
-      var key = REMOTE_KEYS[ri];
-      if (merged[key] === undefined && remote[key] !== undefined && remote[key] !== null) {
-        merged[key] = remote[key];
+    var merged = {};
+
+    // 1. Start with remote defaults (Admin dashboard settings)
+    for (var rk in remote) {
+      if (remote.hasOwnProperty(rk)) merged[rk] = remote[rk];
+    }
+
+    // 2. Override with local (data-*) values where explicitly provided
+    for (var lk in local) {
+      if (local.hasOwnProperty(lk) && local[lk] !== undefined && local[lk] !== null) {
+        merged[lk] = local[lk];
       }
     }
 
-    // Deep merge for custom colors
+    // 3. Apply hard-coded DEFAULTS for anything still undefined
+    for (var dk in DEFAULTS) {
+      if (merged[dk] === undefined || merged[dk] === null) merged[dk] = DEFAULTS[dk];
+    }
+
+    // 4. Deep merge for custom colors
     merged.customColors = {};
     if (remote.customColors) {
       for (var ck in remote.customColors) {
