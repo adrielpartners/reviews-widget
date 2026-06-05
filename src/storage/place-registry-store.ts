@@ -41,6 +41,17 @@ export async function putPlaceRegistry(
 }
 
 /**
+ * Get a single place record by placeId.
+ */
+export async function getPlaceRecord(
+  kv: KVNamespace,
+  placeId: string
+): Promise<PlaceRecord | null> {
+  const registry = await getPlaceRegistry(kv);
+  return registry.places.find((p) => p.placeId === placeId) || null;
+}
+
+/**
  * Check if a place ID exists in the active registry.
  */
 export async function isPlaceActive(

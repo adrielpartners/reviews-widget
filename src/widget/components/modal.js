@@ -7,6 +7,13 @@
   // Show a modal overlay with the full review text.
   // Returns a function to close the modal.
   window.ReviewsWidget.showModal = function (data) {
+    // Fire analytics event for panel open
+    var scriptEl = document.currentScript || document.querySelector('script[src*="widget.js"]');
+    if (scriptEl) {
+      var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+      var localConfig = window.ReviewsWidget._lastConfig;
+      window.ReviewsWidget.trackEvent(apiBase, localConfig && localConfig.placeId, "panel_open");
+    }
     // Fade out flyout if open so it doesn't overlap the modal
     var flyoutEl = document.querySelector(".rw-mode-flyout");
     var flyoutWasVisible = false;

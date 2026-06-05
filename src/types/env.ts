@@ -7,4 +7,6 @@ export interface Env {
   ADMIN_REFRESH_TOKEN: string;
   LOG_LEVEL: string;
   ALLOWED_ORIGINS?: string;
+  /** D1 database for widget analytics events */
+  EVENTS_DB: D1Database;
 }

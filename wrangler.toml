@@ -17,6 +17,12 @@ id = "6c212b237e6d4f41bdb4f9e8de11bd80"
 [triggers]
 crons = ["0 8 * * *"]
 
+# D1 database for analytics events
+[[d1_databases]]
+binding = "EVENTS_DB"
+database_name = "reviews-events"
+database_id = "6be97edc-43aa-427c-ba69-e46287065f52"
+
 # Required secrets (set via `wrangler secret put <NAME>`):
 # GOOGLE_PLACES_API_KEY — Google Places API (New) key
 # ADMIN_REFRESH_TOKEN   — Bearer token for manual refresh endpoint

@@ -15,7 +15,7 @@
       ".rw-root{all:initial;font-family:var(--rw-font-family);font-size:var(--rw-font-size-base);color:var(--rw-color-text);line-height:1.5;background:var(--rw-color-bg);box-sizing:border-box;}",
       ".rw-root *,.rw-root *::before,.rw-root *::after{box-sizing:border-box;}",
       ".rw-summary{display:flex;align-items:center;gap:var(--rw-space-2);margin-bottom:var(--rw-space-4);}",
-      ".rw-summary-name{font-weight:700;font-size:var(--rw-font-size-lg);}",
+      ".rw-summary-name{font-weight:700;font-size:var(--rw-font-size-lg);font-family:var(--rw-font-family-heading);}",
       ".rw-summary-rating{font-weight:600;color:var(--rw-color-star);white-space:nowrap;}",
       ".rw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--rw-space-4);}",
       ".rw-grid-item{display:flex;flex-direction:column;gap:var(--rw-space-2);}",
@@ -81,11 +81,53 @@
     document.head.appendChild(styleEl);
   };
 
-  window.ReviewsWidget.applyTheme = function (rootEl, themeName) {
+  window.ReviewsWidget.applyTheme = function (rootEl, themeName, customColors, customFontSizes, customFontFamilies) {
     var tokens = window.ReviewsWidget.getThemeTokens(themeName);
     for (var k in tokens) {
       if (Object.prototype.hasOwnProperty.call(tokens, k)) {
         rootEl.style.setProperty(k, tokens[k]);
+      }
+    }
+    // Apply custom color overrides on top of theme tokens
+    if (customColors) {
+      var CUSTOM_COLOR_MAP = {
+        colorBg: "--rw-color-bg",
+        colorText: "--rw-color-text",
+        colorTextSecondary: "--rw-color-text-secondary",
+        colorBorder: "--rw-color-border",
+        colorStar: "--rw-color-star",
+        colorStarEmpty: "--rw-color-star-empty",
+        colorCtaBg: "--rw-color-cta-bg",
+        colorCtaText: "--rw-color-cta-text",
+        colorCardBg: "--rw-color-card-bg"
+      };
+      for (var ck in customColors) {
+        if (Object.prototype.hasOwnProperty.call(customColors, ck) && CUSTOM_COLOR_MAP[ck]) {
+          rootEl.style.setProperty(CUSTOM_COLOR_MAP[ck], customColors[ck]);
+        }
+      }
+    }
+    // Apply custom font size overrides
+    if (customFontSizes) {
+      var FONT_SIZE_MAP = {
+        sizeHeadline: "--rw-font-size-lg",
+        sizeTestimonial: "--rw-font-size-sm",
+        sizeAuthor: "--rw-font-size-base",
+        sizeReadMore: "--rw-font-size-xs"
+      };
+      for (var fsk in customFontSizes) {
+        if (Object.prototype.hasOwnProperty.call(customFontSizes, fsk) && FONT_SIZE_MAP[fsk]) {
+          rootEl.style.setProperty(FONT_SIZE_MAP[fsk], customFontSizes[fsk]);
+        }
+      }
+    }
+    // Apply custom font family overrides
+    if (customFontFamilies) {
+      if (customFontFamilies.fontFamilyHeadline) {
+        rootEl.style.setProperty("--rw-font-family-heading", customFontFamilies.fontFamilyHeadline);
+      }
+      if (customFontFamilies.fontFamilyBody) {
+        rootEl.style.setProperty("--rw-font-family", customFontFamilies.fontFamilyBody);
       }
     }
   };
@@ -105,7 +147,7 @@
     // Inject global CSS styles (idempotent — only runs once)
     window.ReviewsWidget.injectStyles();
 
-    window.ReviewsWidget.applyTheme(root, config.theme || "default");
+    window.ReviewsWidget.applyTheme(root, config.theme || "default", config.customColors, config.customFontSizes, config.customFontFamilies);
 
     // Mount: use custom selector, or default to script insertion point
     if (config.mount) {

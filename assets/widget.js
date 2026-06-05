@@ -35,6 +35,36 @@
     if (isNaN(maxReviews) || maxReviews < 1) maxReviews = DEFAULTS.maxReviews;
     if (maxReviews > MAX_REVIEWS_CAP) maxReviews = MAX_REVIEWS_CAP;
 
+    // Parse custom color overrides from data-color-* attributes
+    var customColors = {};
+    var COLOR_PROPS = [
+      "colorBg", "colorText", "colorTextSecondary", "colorBorder",
+      "colorStar", "colorStarEmpty", "colorCtaBg", "colorCtaText", "colorCardBg"
+    ];
+    for (var ci = 0; ci < COLOR_PROPS.length; ci++) {
+      var prop = COLOR_PROPS[ci];
+      var val = dataset[prop];
+      if (val && /^#[0-9a-fA-F]{3,8}$|^rgba?\(/.test(val.trim())) {
+        customColors[prop] = val.trim();
+      }
+    }
+
+    // Parse custom font size overrides from data-font-size-* attributes
+    var customFontSizes = {};
+    var FONT_SIZE_PROPS = ["sizeHeadline", "sizeTestimonial", "sizeAuthor", "sizeReadMore"];
+    for (var fi = 0; fi < FONT_SIZE_PROPS.length; fi++) {
+      var fprop = FONT_SIZE_PROPS[fi];
+      var fval = dataset[fprop];
+      if (fval && /^\\d+(\\.\\d+)?(px|rem|em)$/.test(fval.trim())) {
+        customFontSizes[fprop] = fval.trim();
+      }
+    }
+
+    // Parse custom font family overrides from data-font-family-* attributes
+    var customFontFamilies = {};
+    if (dataset.fontFamilyHeadline) customFontFamilies.fontFamilyHeadline = dataset.fontFamilyHeadline.trim();
+    if (dataset.fontFamilyBody) customFontFamilies.fontFamilyBody = dataset.fontFamilyBody.trim();
+
     return {
       placeId: placeId,
       mode: sanitizeEnum(dataset.mode, VALID_MODES, DEFAULTS.mode),
@@ -45,7 +75,10 @@
       ctaText: sanitizeText(dataset.ctaText),
       ctaUrl: sanitizeUrl(dataset.ctaUrl),
       mount: sanitizeMountSelector(dataset.mount),
-      customClass: sanitizeClassName(dataset.customClass)
+      customClass: sanitizeClassName(dataset.customClass),
+      customColors: customColors,
+      customFontSizes: customFontSizes,
+      customFontFamilies: customFontFamilies
     };
   };
 
@@ -85,6 +118,73 @@
     if (/^[a-zA-Z0-9_ \-]+$/.test(t)) return t;
     return undefined;
   }
+
+  // Merge remote widget defaults with local data-* overrides.
+  // Remote config: the defaults set by the admin dashboard.
+  // Local config: parsed from the embed script tag's data-* attributes.
+  // Rule: local (data-*) value always wins over remote default.
+  window.ReviewsWidget.mergeConfig = function (remote, local) {
+    if (!remote) return local;
+
+    var merged = {};
+    // Start with all local values
+    for (var k in local) {
+      if (local.hasOwnProperty(k)) merged[k] = local[k];
+    }
+
+    // Fill in remote defaults where local didn't provide a value
+    var REMOTE_KEYS = [
+      "mode", "layout", "theme", "position", "maxReviews",
+      "ctaText", "ctaUrl", "mount", "customClass"
+    ];
+    for (var ri = 0; ri < REMOTE_KEYS.length; ri++) {
+      var key = REMOTE_KEYS[ri];
+      if (merged[key] === undefined && remote[key] !== undefined && remote[key] !== null) {
+        merged[key] = remote[key];
+      }
+    }
+
+    // Deep merge for custom colors
+    merged.customColors = {};
+    if (remote.customColors) {
+      for (var ck in remote.customColors) {
+        if (remote.customColors.hasOwnProperty(ck)) merged.customColors[ck] = remote.customColors[ck];
+      }
+    }
+    if (local.customColors) {
+      for (var lck in local.customColors) {
+        if (local.customColors.hasOwnProperty(lck)) merged.customColors[lck] = local.customColors[lck];
+      }
+    }
+
+    // Deep merge for font sizes
+    merged.customFontSizes = {};
+    if (remote.customFontSizes) {
+      for (var fk in remote.customFontSizes) {
+        if (remote.customFontSizes.hasOwnProperty(fk)) merged.customFontSizes[fk] = remote.customFontSizes[fk];
+      }
+    }
+    if (local.customFontSizes) {
+      for (var lfk in local.customFontSizes) {
+        if (local.customFontSizes.hasOwnProperty(lfk)) merged.customFontSizes[lfk] = local.customFontSizes[lfk];
+      }
+    }
+
+    // Deep merge for font families
+    merged.customFontFamilies = {};
+    if (remote.customFontFamilies) {
+      for (var ffk in remote.customFontFamilies) {
+        if (remote.customFontFamilies.hasOwnProperty(ffk)) merged.customFontFamilies[ffk] = remote.customFontFamilies[ffk];
+      }
+    }
+    if (local.customFontFamilies) {
+      for (var lffk in local.customFontFamilies) {
+        if (local.customFontFamilies.hasOwnProperty(lffk)) merged.customFontFamilies[lffk] = local.customFontFamilies[lffk];
+      }
+    }
+
+    return merged;
+  };
 })();
 
 
@@ -131,6 +231,35 @@
         return null;
       });
   };
+
+  // Fire an analytics event to the tracking endpoint.
+  // Uses sendBeacon for fire-and-forget delivery.
+  window.ReviewsWidget.trackEvent = function (apiBase, placeId, eventName) {
+    try {
+      var payload = JSON.stringify({
+        placeId: placeId || "",
+        site: window.location.hostname || "",
+        event: eventName
+      });
+      navigator.sendBeacon(apiBase + "/api/track", payload);
+    } catch (e) {
+      // Silently fail — analytics should never block the widget
+    }
+  };
+
+  // Fetch remote widget config (design defaults) from the Worker API.
+  // Returns a promise that resolves to the config or null.
+  window.ReviewsWidget.fetchRemoteConfig = function (apiBase, placeId) {
+    if (!placeId) return Promise.resolve(null);
+    var url = apiBase + "/api/config?placeId=" + encodeURIComponent(placeId);
+    return fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        if (json && json.ok && json.data && json.data.config) return json.data.config;
+        return null;
+      })
+      .catch(function () { return null; });
+  };
 })();
 
 
@@ -152,7 +281,7 @@
       ".rw-root{all:initial;font-family:var(--rw-font-family);font-size:var(--rw-font-size-base);color:var(--rw-color-text);line-height:1.5;background:var(--rw-color-bg);box-sizing:border-box;}",
       ".rw-root *,.rw-root *::before,.rw-root *::after{box-sizing:border-box;}",
       ".rw-summary{display:flex;align-items:center;gap:var(--rw-space-2);margin-bottom:var(--rw-space-4);}",
-      ".rw-summary-name{font-weight:700;font-size:var(--rw-font-size-lg);}",
+      ".rw-summary-name{font-weight:700;font-size:var(--rw-font-size-lg);font-family:var(--rw-font-family-heading);}",
       ".rw-summary-rating{font-weight:600;color:var(--rw-color-star);white-space:nowrap;}",
       ".rw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--rw-space-4);}",
       ".rw-grid-item{display:flex;flex-direction:column;gap:var(--rw-space-2);}",
@@ -218,11 +347,53 @@
     document.head.appendChild(styleEl);
   };
 
-  window.ReviewsWidget.applyTheme = function (rootEl, themeName) {
+  window.ReviewsWidget.applyTheme = function (rootEl, themeName, customColors, customFontSizes, customFontFamilies) {
     var tokens = window.ReviewsWidget.getThemeTokens(themeName);
     for (var k in tokens) {
       if (Object.prototype.hasOwnProperty.call(tokens, k)) {
         rootEl.style.setProperty(k, tokens[k]);
+      }
+    }
+    // Apply custom color overrides on top of theme tokens
+    if (customColors) {
+      var CUSTOM_COLOR_MAP = {
+        colorBg: "--rw-color-bg",
+        colorText: "--rw-color-text",
+        colorTextSecondary: "--rw-color-text-secondary",
+        colorBorder: "--rw-color-border",
+        colorStar: "--rw-color-star",
+        colorStarEmpty: "--rw-color-star-empty",
+        colorCtaBg: "--rw-color-cta-bg",
+        colorCtaText: "--rw-color-cta-text",
+        colorCardBg: "--rw-color-card-bg"
+      };
+      for (var ck in customColors) {
+        if (Object.prototype.hasOwnProperty.call(customColors, ck) && CUSTOM_COLOR_MAP[ck]) {
+          rootEl.style.setProperty(CUSTOM_COLOR_MAP[ck], customColors[ck]);
+        }
+      }
+    }
+    // Apply custom font size overrides
+    if (customFontSizes) {
+      var FONT_SIZE_MAP = {
+        sizeHeadline: "--rw-font-size-lg",
+        sizeTestimonial: "--rw-font-size-sm",
+        sizeAuthor: "--rw-font-size-base",
+        sizeReadMore: "--rw-font-size-xs"
+      };
+      for (var fsk in customFontSizes) {
+        if (Object.prototype.hasOwnProperty.call(customFontSizes, fsk) && FONT_SIZE_MAP[fsk]) {
+          rootEl.style.setProperty(FONT_SIZE_MAP[fsk], customFontSizes[fsk]);
+        }
+      }
+    }
+    // Apply custom font family overrides
+    if (customFontFamilies) {
+      if (customFontFamilies.fontFamilyHeadline) {
+        rootEl.style.setProperty("--rw-font-family-heading", customFontFamilies.fontFamilyHeadline);
+      }
+      if (customFontFamilies.fontFamilyBody) {
+        rootEl.style.setProperty("--rw-font-family", customFontFamilies.fontFamilyBody);
       }
     }
   };
@@ -242,7 +413,7 @@
     // Inject global CSS styles (idempotent — only runs once)
     window.ReviewsWidget.injectStyles();
 
-    window.ReviewsWidget.applyTheme(root, config.theme || "default");
+    window.ReviewsWidget.applyTheme(root, config.theme || "default", config.customColors, config.customFontSizes, config.customFontFamilies);
 
     // Mount: use custom selector, or default to script insertion point
     if (config.mount) {
@@ -292,8 +463,8 @@
   BASE["--rw-color-overlay"] = "rgba(0,0,0,0.6)";
   BASE["--rw-color-modal-bg"] = "#ffffff";
   BASE["--rw-font-family"] = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-  BASE["--rw-radius-lg"] = "1rem";
-  BASE["--rw-shadow-xl"] = "0 25px 60px rgba(0,0,0,0.2)";
+  BASE["--rw-font-family-heading"] = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+  BASE["--rw-font-size-xs"] = "0.875rem";
   BASE["--rw-font-size-sm"] = "1.3125rem";
   BASE["--rw-font-size-base"] = "1.5rem";
   BASE["--rw-font-size-lg"] = "1.6875rem";
@@ -467,6 +638,13 @@
   // Show a modal overlay with the full review text.
   // Returns a function to close the modal.
   window.ReviewsWidget.showModal = function (data) {
+    // Fire analytics event for panel open
+    var scriptEl = document.currentScript || document.querySelector('script[src*="widget.js"]');
+    if (scriptEl) {
+      var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+      var localConfig = window.ReviewsWidget._lastConfig;
+      window.ReviewsWidget.trackEvent(apiBase, localConfig && localConfig.placeId, "panel_open");
+    }
     // Fade out flyout if open so it doesn't overlap the modal
     var flyoutEl = document.querySelector(".rw-mode-flyout");
     var flyoutWasVisible = false;
@@ -592,6 +770,17 @@
     var btn = document.createElement("a");
     btn.className = "rw-cta";
     btn.textContent = ctaText;
+
+    // Fire CTA click event
+    btn.addEventListener("click", function () {
+      var scriptEl = document.currentScript || document.querySelector('script[src*="widget.js"]');
+      if (scriptEl) {
+        var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+        if (typeof window.ReviewsWidget._lastConfig !== "undefined" && window.ReviewsWidget._lastConfig) {
+          window.ReviewsWidget.trackEvent(apiBase, window.ReviewsWidget._lastConfig.placeId, "cta_click");
+        }
+      }
+    });
     if (ctaUrl) {
       btn.href = ctaUrl;
       btn.target = "_blank";
@@ -971,6 +1160,7 @@
       if (isOpen) {
         showReview(0);
         startAuto();
+        trackPanelOpen();
       } else {
         stopAuto();
       }
@@ -978,6 +1168,17 @@
 
     // Personalization cookie: remember if user has seen flyout
     var COOKIE_NAME = "rw_flyout_seen";
+
+    // Helper to fire panel_open analytics when the flyout panel becomes visible
+    function trackPanelOpen() {
+      var scriptEl = document.currentScript || document.querySelector('script[src*="widget.js"]');
+      if (scriptEl) {
+        var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+        var cfg = window.ReviewsWidget._lastConfig;
+        window.ReviewsWidget.trackEvent(apiBase, cfg && cfg.placeId, "panel_open");
+      }
+    }
+
     function getCookie(name) {
       var match = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]*)"));
       return match ? match[1] : null;
@@ -995,6 +1196,7 @@
         panel.style.display = "block";
         showReview(0);
         startAuto();
+        trackPanelOpen();
         setCookie(COOKIE_NAME, "1", 30);
       }, 1000);
     } else {
@@ -1003,6 +1205,7 @@
       panel.style.display = "block";
       showReview(0);
       startAuto();
+      trackPanelOpen();
     }
 
     function showReview(idx) {
@@ -1106,55 +1309,72 @@
     return;
   }
 
-  // Parse config from data-* attributes
-  var config;
+  // Determine API base URL
+  var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+
+  // Parse local config from data-* attributes (needed early for placeId)
+  var localConfig;
   try {
-    config = window.ReviewsWidget.parseConfig(scriptEl);
+    localConfig = window.ReviewsWidget.parseConfig(scriptEl);
   } catch (e) {
     console.error("[reviews-widget] Config parse error:", e);
     return;
   }
-  if (!config) return;
+  if (!localConfig) return;
 
-  // Determine API base URL
-  var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+  var placeId = localConfig.placeId;
 
-  // Create the widget root element
-  var rootEl;
-  try {
-    rootEl = window.ReviewsWidget.createRoot(config);
-  } catch (e) {
-    console.error("[reviews-widget] Root creation error:", e);
-    return;
-  }
+  // Fetch remote config, then merge with local data-* overrides
+  window.ReviewsWidget.fetchRemoteConfig(apiBase, placeId).then(function (remoteConfig) {
+    var config;
+    try {
+      config = window.ReviewsWidget.mergeConfig(remoteConfig, localConfig);
+    } catch (e) {
+      config = localConfig;
+    }
 
-  // Set ARIA role on root
-  rootEl.setAttribute("role", "region");
-  rootEl.setAttribute("aria-label", "Customer reviews");
+    // Store the final merged config for other components (modal, cta) to read
+    window.ReviewsWidget._lastConfig = config;
 
-  // Fetch review data
-  window.ReviewsWidget.fetchReviews(apiBase, config.placeId).then(function (data) {
-    if (!data) {
-      window.ReviewsWidget.renderEmpty(rootEl);
+    // Create the widget root element
+    var rootEl;
+    try {
+      rootEl = window.ReviewsWidget.createRoot(config);
+    } catch (e) {
+      console.error("[reviews-widget] Root creation error:", e);
       return;
     }
 
-    try {
-      // Route to the correct display mode
-      if (config.mode === "flyout") {
-        window.ReviewsWidget.renderFlyout(rootEl, data, config);
-      } else if (config.layout === "carousel") {
-        window.ReviewsWidget.renderInlineCarousel(rootEl, data, config);
-      } else {
-        // Default: inline grid
-        window.ReviewsWidget.renderInlineGrid(rootEl, data, config);
+    // Set ARIA role on root
+    rootEl.setAttribute("role", "region");
+    rootEl.setAttribute("aria-label", "Customer reviews");
+
+    // Fetch review data
+    window.ReviewsWidget.fetchReviews(apiBase, placeId).then(function (data) {
+      if (!data) {
+        window.ReviewsWidget.renderEmpty(rootEl);
+        return;
       }
-    } catch (e) {
-      console.error("[reviews-widget] Render error:", e);
+
+      try {
+        // Route to the correct display mode
+        if (config.mode === "flyout") {
+          window.ReviewsWidget.renderFlyout(rootEl, data, config);
+        } else if (config.layout === "carousel") {
+          window.ReviewsWidget.renderInlineCarousel(rootEl, data, config);
+        } else {
+          // Default: inline grid
+          window.ReviewsWidget.renderInlineGrid(rootEl, data, config);
+        }
+      } catch (e) {
+        console.error("[reviews-widget] Render error:", e);
+        window.ReviewsWidget.renderEmpty(rootEl);
+      }
+    }).catch(function () {
       window.ReviewsWidget.renderEmpty(rootEl);
-    }
-  }).catch(function () {
-    window.ReviewsWidget.renderEmpty(rootEl);
+    });
+
+    // Fire impression event after render is queued (sendBeacon is async)
+    window.ReviewsWidget.trackEvent(apiBase, placeId, "widget_impression");
   });
 })();
-

@@ -15,8 +15,8 @@
   BASE["--rw-color-overlay"] = "rgba(0,0,0,0.6)";
   BASE["--rw-color-modal-bg"] = "#ffffff";
   BASE["--rw-font-family"] = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
-  BASE["--rw-radius-lg"] = "1rem";
-  BASE["--rw-shadow-xl"] = "0 25px 60px rgba(0,0,0,0.2)";
+  BASE["--rw-font-family-heading"] = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+  BASE["--rw-font-size-xs"] = "0.875rem";
   BASE["--rw-font-size-sm"] = "1.3125rem";
   BASE["--rw-font-size-base"] = "1.5rem";
   BASE["--rw-font-size-lg"] = "1.6875rem";

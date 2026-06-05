@@ -9,12 +9,19 @@ import { handleReviews } from "./routes/reviews";
 import { handleWidget } from "./routes/widget";
 import { handleAdminRefresh } from "./routes/admin-refresh";
 import { handleSetup } from "./routes/setup";
+import { handleTrack } from "./routes/track";
+import { handleConfig } from "./routes/config";
+import { handleAdminListPlaces, handleAdminUpdateConfig, handleAdminAddPlace } from "./routes/admin-places";
+import { handleAdminDashboard } from "./routes/admin-dashboard";
+import { handleAdminStats } from "./routes/admin-stats";
 import { refreshPlace } from "./services/refresh-service";
 import { getActivePlaces } from "./storage/place-registry-store";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    // === Public endpoints ===
 
     if (url.pathname === "/api/health") {
       return handleHealth();
@@ -28,12 +35,46 @@ export default {
       return handleWidget();
     }
 
+    if (url.pathname === "/setup") {
+      return handleSetup();
+    }
+
+    if (url.pathname === "/api/config") {
+      return handleConfig(request, env.REVIEWS_KV);
+    }
+
+    if (url.pathname === "/api/track") {
+      return handleTrack(request, env);
+    }
+
+    // === Admin-only endpoints ===
+
     if (url.pathname === "/api/admin/refresh-place") {
       return handleAdminRefresh(request, env);
     }
 
-    if (url.pathname === "/setup") {
-      return handleSetup();
+    if (url.pathname === "/admin/dashboard") {
+      return handleAdminDashboard(request, env);
+    }
+
+    if (url.pathname === "/api/admin/stats") {
+      return handleAdminStats(request, env);
+    }
+
+    if (url.pathname === "/api/admin/places") {
+      if (request.method === "GET") {
+        return handleAdminListPlaces(request, env);
+      }
+      if (request.method === "POST") {
+        return handleAdminAddPlace(request, env);
+      }
+      return jsonResponse(405, errorEnvelope(ErrorCode.METHOD_NOT_ALLOWED, "Method not allowed"));
+    }
+
+    // PUT /api/admin/places/:placeId/config
+    const configMatch = url.pathname.match(/^\/api\/admin\/places\/([^/]+)\/config$/);
+    if (configMatch) {
+      return handleAdminUpdateConfig(request, env, configMatch[1]);
     }
 
     return jsonResponse(404, errorEnvelope(ErrorCode.NOT_FOUND, "Not found"));

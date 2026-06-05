@@ -110,6 +110,7 @@
       if (isOpen) {
         showReview(0);
         startAuto();
+        trackPanelOpen();
       } else {
         stopAuto();
       }
@@ -117,6 +118,17 @@
 
     // Personalization cookie: remember if user has seen flyout
     var COOKIE_NAME = "rw_flyout_seen";
+
+    // Helper to fire panel_open analytics when the flyout panel becomes visible
+    function trackPanelOpen() {
+      var scriptEl = document.currentScript || document.querySelector('script[src*="widget.js"]');
+      if (scriptEl) {
+        var apiBase = window.ReviewsWidget.getApiBase(scriptEl);
+        var cfg = window.ReviewsWidget._lastConfig;
+        window.ReviewsWidget.trackEvent(apiBase, cfg && cfg.placeId, "panel_open");
+      }
+    }
+
     function getCookie(name) {
       var match = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]*)"));
       return match ? match[1] : null;
@@ -134,6 +146,7 @@
         panel.style.display = "block";
         showReview(0);
         startAuto();
+        trackPanelOpen();
         setCookie(COOKIE_NAME, "1", 30);
       }, 1000);
     } else {
@@ -142,6 +155,7 @@
       panel.style.display = "block";
       showReview(0);
       startAuto();
+      trackPanelOpen();
     }
 
     function showReview(idx) {
