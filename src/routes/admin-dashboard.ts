@@ -108,6 +108,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .embed-section{margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid #e2e8f0}
 .embed-section h3{font-size:0.9375rem;font-weight:700;color:#0f172a;margin-bottom:0.5rem}
 .embed-code{background:#0f172a;color:#e2e8f0;padding:1rem;border-radius:0.5rem;font-size:0.75rem;line-height:1.6;overflow-x:auto;white-space:pre;font-family:'SF Mono','Fira Code','Cascadia Code',monospace;margin-bottom:0.75rem}
+.refresh-link{font-size:0.8125rem;color:#3b82f6;text-decoration:none;cursor:pointer}
+.refresh-link:hover{text-decoration:underline;color:#2563eb}
+.refresh-link.loading{color:#94a3b8;cursor:default;pointer-events:none;text-decoration:none}
+.refresh-status{font-size:0.8125rem;margin-left:0.5rem;color:#64748b}
 
 /* Toast notifications */
 .toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:2000;background:#0f172a;color:#f1f5f9;padding:0.75rem 1.25rem;border-radius:0.5rem;font-size:0.875rem;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,0.2);opacity:0;transform:translateY(20px);transition:all 0.3s;pointer-events:none}
@@ -276,6 +280,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <p class="hint" style="margin-bottom:0.5rem">Copy this onto the client&rsquo;s site. Empty <code>data-*</code> attributes are placeholders &mdash; the widget uses Admin-configured defaults unless the client fills them in.</p>
       <pre class="embed-code" id="embedCodeOutput"></pre>
       <button class="btn btn-outline btn-sm" onclick="copyEmbedCode()">&#x1f4cb; Copy</button>
+    </div>
+    <div class="embed-section">
+      <a href="#" onclick="refreshPlaceReviews();return false" id="refreshPlaceLink" class="refresh-link">&#x1f504; Manually Refresh Reviews</a>
+      <span id="refreshPlaceStatus" class="refresh-status"></span>
     </div>
   </div>
 </div>
@@ -702,6 +710,30 @@ function copyEmbedCode() {
   });
 }
 
+function refreshPlaceReviews() {
+  if (!editingPlaceId) return;
+  var link = document.getElementById('refreshPlaceLink');
+  var status = document.getElementById('refreshPlaceStatus');
+  link.classList.add('loading');
+  status.textContent = 'Refreshing\u2026';
+  apiFetch('/api/admin/refresh-place', {
+    method: 'POST',
+    body: JSON.stringify({ placeId: editingPlaceId })
+  }).then(function(data) {
+    if (data.data && data.data.reviewCount !== undefined) {
+      status.textContent = '\u2713 ' + data.data.reviewCount + ' reviews';
+    } else {
+      status.textContent = '\u2713 Refreshed';
+    }
+    link.classList.remove('loading');
+    setTimeout(function() { status.textContent = ''; }, 4000);
+  }).catch(function(e) {
+    status.textContent = '\u2717 Failed: ' + e.message;
+    link.classList.remove('loading');
+    setTimeout(function() { status.textContent = ''; }, 5000);
+  });
+}
+
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -740,6 +772,7 @@ window.refreshDashboard = refreshDashboard;
 window.applyThemeColors = applyThemeColors;
 window.genEmbedCode = genEmbedCode;
 window.copyEmbedCode = copyEmbedCode;
+window.refreshPlaceReviews = refreshPlaceReviews;
 
 })();
 </script>
